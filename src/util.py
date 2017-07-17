@@ -44,7 +44,7 @@ def getAnnotationDict(annotationPath):
 def getAverageImageDimensions():
     file_list = []
 
-    # for fname in glob.iglob(''F:/dogs/annotation/n02085620-Chihuahua/n02085620_199'**/*', recursive=True):
+    # for fname in glob.iglob('F:/dogs/annotation/n02085620-Chihuahua/n02085620_199/**/*', recursive=True):
     #     if os.path.isfile(fname):
     #         file_list.append(getAnnotationDict(fname))
 
@@ -87,10 +87,30 @@ def getAverageImageDimensions():
     # box width:  289.04067055393585
     # box height:  297.6299319727891
 
-PATH = 'F:/dogs/images/'
-BOX_FOLDER = 'boxes/'
 
-def cropSaveBoundedBox(annotationDict, newWidth, newHeight):
+def getImageFolderPathName(annotationDict):
+    """
+    getImageFolderPathName returns the folder name which contains the
+    image file for the annotationDict parameter.
+
+    'n02085620_7' => 'n02085620-Chihuahua'
+
+    input:
+        annotationDict: dictionary, contains filename of annotation.
+
+    output:
+        string, returns folder name which contains image file
+        for this annotation
+    """
+    filename = annotationDict['filename']
+    folderName = filename.split('_')[0] + '-' + annotationDict['breed']
+    return folderName
+
+ANNOTATION_PATH = 'F:/dogs/annotation/'
+IMAGE_PATH = 'F:/dogs/images/'
+BOX_FOLDER = 'boxes_'
+
+def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight):
     """
     cropSaveBoundedBox crops the image to the pixels designated
     by its bounded box, resizes the image to the provided 
@@ -102,6 +122,8 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight):
         annotationDict: dictionary, returned from getAnnotationDict(),
         contains filename, breed, and other info
 
+        savePath: string, path to save the image to
+
         newWidth: int, new width in px for resized bounded box
 
         newHeight: int, new height in px for resized bounded box 
@@ -111,8 +133,8 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight):
     """
     
     filename = annotationDict['filename']
-    folderName = filename.split('_')[0] + '-' + annotationDict['breed']
-    tempImage = Image.open(PATH + folderName + '/' + filename + '.jpg')
+    folderName = getImageFolderPathName(annotationDict)
+    tempImage = Image.open(IMAGE_PATH + folderName + '/' + filename + '.jpg')
 
     # crop the image to the region defined by the bounding box
     croppedImage = tempImage.crop((annotationDict['xmin'], 
@@ -149,13 +171,53 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight):
 
     # save the bounding box on black background to disk
     boxFileEnding = '_box_' + str(newWidth) + '_' + str(newHeight) + '.jpg'
-    blackBackground.save(PATH + folderName + '/' + BOX_FOLDER + filename + boxFileEnding)
+    blackBackground.save(savePath + '/' + filename + boxFileEnding)
+
+
+def generateAllResizedImages(newWidth, newHeight):
+    """ 
+    generateAllResizedImages reads each annotation file in 
+    /annotation/* and then creates a resized image based on the
+    bounding box for that annotation and saves it to the folder
+    /images/breed/boxes_newWidth_newHeight 
+
+    input:
+        newWidth: int, the width for the output image
+
+        newHeight: int, the height for the output image
+
+    output:
+        returns nothing, but saves images to the corresponding
+        breed folders in /images
+    """
+    count = 0
+
+    # recursively iterate through all the annotation files
+    for fname in glob.iglob(ANNOTATION_PATH + '**/*', recursive=True):
+        if os.path.isfile(fname):
+            annotationDict = getAnnotationDict(fname)
+
+            # create the path ending in 'boxes_newWidth_newHeight'
+            boxFolderPath = IMAGE_PATH + getImageFolderPathName(annotationDict) + '/' + BOX_FOLDER + \
+                            str(newWidth) + '_' + str(newHeight)
+
+            # create the 'boxes_newWidth_newHeight' folder if it
+            # does not already exist
+            if not os.path.exists(boxFolderPath):
+                os.makedirs(boxFolderPath)
+
+            # crop and save the new image file
+            cropSaveBoundedBox(annotationDict, boxFolderPath, newWidth, newHeight)
+            count += 1
+
+    print('Images Resized:', count)
 
 
 #getAverageImageDimensions()
-annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
-cropSaveBoundedBox(annotationDict, 280, 291)
+#annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
+#cropSaveBoundedBox(annotationDict, 280, 291)
 
+generateAllResizedImages(280, 291)
 
 
 

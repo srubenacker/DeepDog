@@ -106,6 +106,33 @@ def getImageFolderPathName(annotationDict):
     folderName = filename.split('_')[0] + '-' + annotationDict['breed']
     return folderName
 
+
+def getImageFilePathName(annotationDict, savePath, newWidth, newHeight):
+    """
+    getImageFilePathName returns the file path and file name for the 
+    new cropped and resized image.
+
+    Given image 'n02085620_7' resized to 64 x 64 and save path 'images',
+    it will return 'images/n02085620_7_box_64_64.jpg'
+
+    input:
+        annotationDict: dictionary, contains the filename
+
+        savePath: string, the folder path where the image should be saved
+
+        newWidth: int, the new width for the image
+
+        newHeight: int, the new height for the image
+
+    output:
+        returns a string, which is the folder path and the file name
+
+    """
+    filename = annotationDict['filename']
+    boxFileEnding = '_box_' + str(newWidth) + '_' + str(newHeight) + '.jpg'
+    return savePath + '/' + filename + boxFileEnding
+
+
 ANNOTATION_PATH = 'F:/dogs/annotation/'
 IMAGE_PATH = 'F:/dogs/images/'
 BOX_FOLDER = 'boxes_'
@@ -170,8 +197,7 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight):
         (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
 
     # save the bounding box on black background to disk
-    boxFileEnding = '_box_' + str(newWidth) + '_' + str(newHeight) + '.jpg'
-    blackBackground.save(savePath + '/' + filename + boxFileEnding)
+    blackBackground.save(getImageFilePathName(annotationDict, savePath, newWidth, newHeight))
 
 
 def generateAllResizedImages(newWidth, newHeight):
@@ -206,9 +232,15 @@ def generateAllResizedImages(newWidth, newHeight):
             if not os.path.exists(boxFolderPath):
                 os.makedirs(boxFolderPath)
 
-            # crop and save the new image file
-            cropSaveBoundedBox(annotationDict, boxFolderPath, newWidth, newHeight)
+            # only write a new image if we haven't come across it yet
+            if not os.path.exists(getImageFilePathName(annotationDict, boxFolderPath, newWidth, newHeight)):
+                # crop and save the new image file
+                cropSaveBoundedBox(annotationDict, boxFolderPath, newWidth, newHeight)
+
             count += 1
+            if count % 100 == 0:
+                print('Progress: ' + str(count / float(20580) * 100) + '%')
+                print('Just processed ' + getImageFilePathName(annotationDict, boxFolderPath, newWidth, newHeight))
 
     print('Images Resized:', count)
 

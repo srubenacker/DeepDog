@@ -4,6 +4,8 @@ import os
 import json
 import csv
 from PIL import Image
+import numpy as np
+
 
 def getAnnotationDict(annotationPath):
     """
@@ -40,6 +42,7 @@ def getAnnotationDict(annotationPath):
     result_dict['ymax'] = int(root[5][4][3].text)
 
     return result_dict
+
 
 def getAverageImageDimensions():
     file_list = []
@@ -137,7 +140,8 @@ ANNOTATION_PATH = 'F:/dogs/annotation/'
 IMAGE_PATH = 'F:/dogs/images/'
 BOX_FOLDER = 'boxes_'
 
-def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight):
+
+def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight, backgroundColor=(0,0,0)):
     """
     cropSaveBoundedBox crops the image to the pixels designated
     by its bounded box, resizes the image to the provided 
@@ -155,6 +159,8 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight):
 
         newHeight: int, new height in px for resized bounded box 
 
+        backgroundColor: (int, int, int), color for background
+
     output:
         returns nothing, will throw exception if crop or save fails
     """
@@ -170,7 +176,7 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight):
                                    annotationDict['ymax']))
 
     # create an empty black background size of the new image size
-    blackBackground = Image.new('RGB', (newWidth, newHeight), (0, 0, 0))
+    background = Image.new('RGB', (newWidth, newHeight), backgroundColor)
 
     # keep the aspect ratio of the bounding box 
     # if the width is bigger than the height
@@ -193,14 +199,14 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight):
                                        resample=Image.LANCZOS)
 
     # paste the bounding box with original aspect ratio onto black background
-    blackBackground.paste(resizedImage, 
+    background.paste(resizedImage, 
         (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
 
     # save the bounding box on black background to disk
-    blackBackground.save(getImageFilePathName(annotationDict, savePath, newWidth, newHeight))
+    background.save(getImageFilePathName(annotationDict, savePath, newWidth, newHeight))
 
 
-def generateAllResizedImages(newWidth, newHeight):
+def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
     """ 
     generateAllResizedImages reads each annotation file in 
     /annotation/* and then creates a resized image based on the
@@ -211,6 +217,8 @@ def generateAllResizedImages(newWidth, newHeight):
         newWidth: int, the width for the output image
 
         newHeight: int, the height for the output image
+
+        backgroundColor: (int, int, int), color for background
 
     output:
         returns nothing, but saves images to the corresponding
@@ -235,7 +243,7 @@ def generateAllResizedImages(newWidth, newHeight):
             # only write a new image if we haven't come across it yet
             if not os.path.exists(getImageFilePathName(annotationDict, boxFolderPath, newWidth, newHeight)):
                 # crop and save the new image file
-                cropSaveBoundedBox(annotationDict, boxFolderPath, newWidth, newHeight)
+                cropSaveBoundedBox(annotationDict, boxFolderPath, newWidth, newHeight, backgroundColor)
 
             count += 1
             if count % 100 == 0:
@@ -245,11 +253,81 @@ def generateAllResizedImages(newWidth, newHeight):
     print('Images Resized:', count)
 
 
+def getResizedImageData(annotationDict, width, height):
+    """
+    """
+    pass
+
+
+
+
 #getAverageImageDimensions()
 #annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
 #cropSaveBoundedBox(annotationDict, 280, 291)
 
-generateAllResizedImages(280, 291)
+#generateAllResizedImages(280, 291)
+
+
+def generateTrainingTestLists():
+    """
+    """
+    trainingRatio = 0.7
+
+    file_list = []
+    with open('annotation_summary.json', 'r') as data_file:
+        file_list = json.load(data_file)['list']
+    file_list_len = len(file_list)
+
+    breedAnnotations = {}
+
+    for annotation in file_list:
+        if annotation['breed'] not in breedAnnotations:
+            breedAnnotations[annotation['breed']] = [annotation]
+        else:
+            breedAnnotations[annotation['breed']].append(annotation)
+
+    trainingAnnotations = {}
+    testingAnnotations = {}
+    oneHotEncodings = {}
+    numberBreeds = len(breedAnnotations.keys())
+
+    for i, breed in enumerate(breedAnnotations.keys()):
+        breedAnnotationsLen = len(breedAnnotations[breed])
+        trainingSize = int(breedAnnotationsLen * trainingRatio)
+        testingSize = breedAnnotationsLen - trainingSize
+        print(breed, breedAnnotationsLen, trainingSize, testingSize)
+
+        trainingAnnotations[breed] = breedAnnotations[breed][:trainingSize]
+        testingAnnotations[breed] = breedAnnotations[breed][trainingSize:]
+        oneHotEncodings[breed] = ([0] * numberBreeds)
+        oneHotEncodings[breed][i] = 1
+
+    with open('training_annotations.json', 'w') as fout:
+        json.dump(trainingAnnotations, fout)
+
+    with open('testing_annotations.json', 'w') as fout:
+        json.dump(testingAnnotations, fout)
+
+    with open('one_hot_encodings.json', 'w') as fout:
+        json.dump(oneHotEncodings, fout)
+
+
+
+generateTrainingTestLists()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

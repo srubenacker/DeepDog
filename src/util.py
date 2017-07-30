@@ -91,6 +91,11 @@ def getAverageImageDimensions():
     # box height:  297.6299319727891
 
 
+ANNOTATION_PATH = 'F:/dogs/annotation/'
+IMAGE_PATH = 'F:/dogs/images/'
+BOX_FOLDER = 'boxes_'
+
+
 def getImageFolderPathName(annotationDict):
     """
     getImageFolderPathName returns the folder name which contains the
@@ -110,18 +115,40 @@ def getImageFolderPathName(annotationDict):
     return folderName
 
 
-def getImageFilePathName(annotationDict, savePath, newWidth, newHeight):
+def getBoxFolderPathName(annotationDict, newWidth, newHeight):
+    """
+    getBoxFolderPathName returns the folder name which contains the
+    resized image files for an original image file.
+
+    Given image 'n02085620_7', you can find the resized images at:
+        'F:/dogs/images/n02085620-Chihuahua/boxes_64_64/'
+
+    input:
+        annotationDict: dictionary, contains filename
+
+        newWidth: int, the new width for the image
+
+        newHeight: int, the new height for the image
+
+    output:
+        returns a string, the folder path for the resized images
+    """
+    folderName = getImageFolderPathName(annotationDict)
+    boxFolder = BOX_FOLDER + str(newWidth) + '_' + str(newHeight)
+    return IMAGE_PATH + folderName + '/' + boxFolder + '/'
+
+
+def getImageFilePathName(annotationDict, newWidth, newHeight):
     """
     getImageFilePathName returns the file path and file name for the 
     new cropped and resized image.
 
-    Given image 'n02085620_7' resized to 64 x 64 and save path 'images',
-    it will return 'images/n02085620_7_box_64_64.jpg'
+    Given image 'n02085620_7' resized to 64 x 64,
+    it will return:
+        'F:/dogs/images/n02085620-Chihuahua/boxes_64_64/n02085620_7_box_64_64.jpg'
 
     input:
         annotationDict: dictionary, contains the filename
-
-        savePath: string, the folder path where the image should be saved
 
         newWidth: int, the new width for the image
 
@@ -132,16 +159,14 @@ def getImageFilePathName(annotationDict, savePath, newWidth, newHeight):
 
     """
     filename = annotationDict['filename']
+
+    # create the file suffix i.e. '_box_64x64.jpg'
     boxFileEnding = '_box_' + str(newWidth) + '_' + str(newHeight) + '.jpg'
-    return savePath + '/' + filename + boxFileEnding
+    
+    return getBoxFolderPathName(annotationDict, newWidth, newHeight) + filename + boxFileEnding
 
 
-ANNOTATION_PATH = 'F:/dogs/annotation/'
-IMAGE_PATH = 'F:/dogs/images/'
-BOX_FOLDER = 'boxes_'
-
-
-def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight, backgroundColor=(0,0,0)):
+def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=(0,0,0)):
     """
     cropSaveBoundedBox crops the image to the pixels designated
     by its bounded box, resizes the image to the provided 
@@ -153,8 +178,6 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight, background
         annotationDict: dictionary, returned from getAnnotationDict(),
         contains filename, breed, and other info
 
-        savePath: string, path to save the image to
-
         newWidth: int, new width in px for resized bounded box
 
         newHeight: int, new height in px for resized bounded box 
@@ -165,6 +188,8 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight, background
         returns nothing, will throw exception if crop or save fails
     """
     
+    # open the original image (the one which is not resized)
+    # for instance, image file n02085620_7 is located at 'F:/dogs/images/n02085620-Chihuahua/n02085620_7.jpg'
     filename = annotationDict['filename']
     folderName = getImageFolderPathName(annotationDict)
     tempImage = Image.open(IMAGE_PATH + folderName + '/' + filename + '.jpg')
@@ -195,15 +220,14 @@ def cropSaveBoundedBox(annotationDict, savePath, newWidth, newHeight, background
         boxHeight = newHeight
 
     # resize the bounding box while keeping the aspect ratio
-    resizedImage = croppedImage.resize((boxWidth, boxHeight), 
-                                       resample=Image.LANCZOS)
+    resizedImage = croppedImage.resize((boxWidth, boxHeight), resample=Image.LANCZOS)
 
     # paste the bounding box with original aspect ratio onto black background
     background.paste(resizedImage, 
         (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
 
     # save the bounding box on black background to disk
-    background.save(getImageFilePathName(annotationDict, savePath, newWidth, newHeight))
+    background.save(getImageFilePathName(annotationDict, newWidth, newHeight))
 
 
 def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
@@ -230,10 +254,7 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
     for fname in glob.iglob(ANNOTATION_PATH + '**/*', recursive=True):
         if os.path.isfile(fname):
             annotationDict = getAnnotationDict(fname)
-
-            # create the path ending in 'boxes_newWidth_newHeight'
-            boxFolderPath = IMAGE_PATH + getImageFolderPathName(annotationDict) + '/' + BOX_FOLDER + \
-                            str(newWidth) + '_' + str(newHeight)
+            boxFolderPath = getBoxFolderPathName(annotationDict, newWidth, newHeight)
 
             # create the 'boxes_newWidth_newHeight' folder if it
             # does not already exist
@@ -241,14 +262,14 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
                 os.makedirs(boxFolderPath)
 
             # only write a new image if we haven't come across it yet
-            if not os.path.exists(getImageFilePathName(annotationDict, boxFolderPath, newWidth, newHeight)):
+            if not os.path.exists(getImageFilePathName(annotationDict, newWidth, newHeight)):
                 # crop and save the new image file
-                cropSaveBoundedBox(annotationDict, boxFolderPath, newWidth, newHeight, backgroundColor)
+                cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor)
 
             count += 1
             if count % 100 == 0:
                 print('Progress: ' + str(count / float(20580) * 100) + '%')
-                print('Just processed ' + getImageFilePathName(annotationDict, boxFolderPath, newWidth, newHeight))
+                print('Just processed ' + getImageFilePathName(annotationDict, newWidth, newHeight))
 
     print('Images Resized:', count)
 
@@ -256,10 +277,7 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
 def getResizedImageData(annotationDict, width, height):
     """
     """
-    pass
-
-
-
+    filePath = getImageFolderPathName(annotationDict, width, height)
 
 #getAverageImageDimensions()
 #annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
@@ -313,9 +331,9 @@ def generateTrainingTestLists():
 
 
 
-generateTrainingTestLists()
+#generateTrainingTestLists()
 
-
+generateAllResizedImages(64, 64, (0, 255, 0))
 
 
 

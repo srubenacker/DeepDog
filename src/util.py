@@ -290,7 +290,6 @@ def getResizedImageData(annotationDict, width, height):
     output:
         returns a numpy array of shape (height, width, 3) representing
         the resized image data 
-
     """
     filePath = getImageFilePathName(annotationDict, width, height)
     image = Image.open(filePath)
@@ -298,40 +297,68 @@ def getResizedImageData(annotationDict, width, height):
     return imageArray
 
 
-def generateTrainingTestLists():
+def generateTrainingTestLists(trainingRatio=0.7):
     """
-    """
-    trainingRatio = 0.7
+    generateTrainingTestLists outputs three .json files containing
+    the training and test splits based on the training ratio, along
+    with the one hot encodings for each class (breed).  The .json
+    files for the training and test splits contain dictionaries, 
+    where the key is the breed, and the value for each key is a list 
+    of annotation dictionaries where each annotation dicionary's 
+    breed is the key.  The .json file for the one hot encodings
+    is a dictionary, where the key is a breed, and the value
+    is a one hot encoding (a list).
 
+    generateTrainingTestLists reads all the annotation dictionaries
+    from annotation_summary.json.
+
+    input:
+        trainingRatio: float, default is 70% training split
+
+    output:
+        writes three .json files to disk:
+            training_annotations.json,
+            testing_annotations.json,
+            one_hot_encodings.json  
+    """
+
+    # read all the annotation dictionaries from
+    # annotation_summary.json into file_list
     file_list = []
     with open('annotation_summary.json', 'r') as data_file:
         file_list = json.load(data_file)['list']
-    file_list_len = len(file_list)
 
+    # sort the annotations based on breed into a dictionary
+    # i.e.: breedAnnotations = {'husky': [list of husky annotations]}
     breedAnnotations = {}
-
     for annotation in file_list:
-        if annotation['breed'] not in breedAnnotations:
-            breedAnnotations[annotation['breed']] = [annotation]
+        breed = annotation['breed']
+        if breed not in breedAnnotations:
+            breedAnnotations[breed] = [annotation]
         else:
-            breedAnnotations[annotation['breed']].append(annotation)
+            breedAnnotations[breed].append(annotation)
 
+    # dictionaries for training splits, testing splits, and one hot encodings
     trainingAnnotations = {}
     testingAnnotations = {}
     oneHotEncodings = {}
     numberBreeds = len(breedAnnotations.keys())
 
     for i, breed in enumerate(breedAnnotations.keys()):
+        # calculate the number of training examples to include from this breed,
+        # as each breed has a different number of total annotations
         breedAnnotationsLen = len(breedAnnotations[breed])
         trainingSize = int(breedAnnotationsLen * trainingRatio)
-        testingSize = breedAnnotationsLen - trainingSize
-        print(breed, breedAnnotationsLen, trainingSize, testingSize)
-
         trainingAnnotations[breed] = breedAnnotations[breed][:trainingSize]
         testingAnnotations[breed] = breedAnnotations[breed][trainingSize:]
+
+        # create the one hot encoding for this breed
+        # the one hot encoding is a list of 0s, the size being the number of breeds
+        # a 1 is inserted at the index of the ith breed for the encodings
         oneHotEncodings[breed] = ([0] * numberBreeds)
         oneHotEncodings[breed][i] = 1
 
+    # write the three dictionaries to file
     with open('training_annotations.json', 'w') as fout:
         json.dump(trainingAnnotations, fout)
 
@@ -355,18 +382,3 @@ getResizedImageData(annotationDict, 280, 291)
 
 
 #generateAllResizedImages(64, 64, (0, 255, 0))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

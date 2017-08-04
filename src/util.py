@@ -276,14 +276,26 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
 
 def getResizedImageData(annotationDict, width, height):
     """
+    getResizedImageData returns a numpy array of the rgb values for the resized image.
+    The shape of the numpy array is (height, width, 3).
+
+    input:
+        annotationDict: dictionary, contains the file name for the original image,
+                        used to get the filepath for the resized image
+
+        width: int, the width of the resized image to retrieve
+
+        height: int, the height of the resized image to retrieve
+
+    output:
+        returns a numpy array of shape (height, width, 3) representing
+        the resized image data 
+
     """
-    filePath = getImageFolderPathName(annotationDict, width, height)
-
-#getAverageImageDimensions()
-#annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
-#cropSaveBoundedBox(annotationDict, 280, 291)
-
-#generateAllResizedImages(280, 291)
+    filePath = getImageFilePathName(annotationDict, width, height)
+    image = Image.open(filePath)
+    imageArray = np.array(image)
+    return imageArray
 
 
 def generateTrainingTestLists():
@@ -330,10 +342,19 @@ def generateTrainingTestLists():
         json.dump(oneHotEncodings, fout)
 
 
+#getAverageImageDimensions()
+#annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
+#cropSaveBoundedBox(annotationDict, 280, 291)
+
+#generateAllResizedImages(280, 291)
 
 #generateTrainingTestLists()
 
-generateAllResizedImages(64, 64, (0, 255, 0))
+annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
+getResizedImageData(annotationDict, 280, 291)
+
+
+#generateAllResizedImages(64, 64, (0, 255, 0))
 
 
 

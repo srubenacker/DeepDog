@@ -277,7 +277,8 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
 def getResizedImageData(annotationDict, width, height):
     """
     getResizedImageData returns a numpy array of the rgb values for the resized image.
-    The shape of the numpy array is (height, width, 3).
+    The RGB int values are converted to a float16 (0-255 => 0.0-1.0).
+    The shape of the numpy array is (height, width, 3).  
 
     input:
         annotationDict: dictionary, contains the file name for the original image,
@@ -294,6 +295,14 @@ def getResizedImageData(annotationDict, width, height):
     filePath = getImageFilePathName(annotationDict, width, height)
     image = Image.open(filePath)
     imageArray = np.array(image)
+    # converting to float64 here increases the size per image by a factor of 8 compared
+    # to the 1 byte used by 0 - 255 rgb int
+    # the RAM usage is insane
+    #imageArray = imageArray / 255.0 
+
+    # converting to float 16 cuts the size by 4
+    imageArray = np.array(imageArray / 255.0, dtype=np.float16)
+    image.close()
     return imageArray
 
 
@@ -377,8 +386,8 @@ def generateTrainingTestLists(trainingRatio=0.7):
 
 #generateTrainingTestLists()
 
-annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
-getResizedImageData(annotationDict, 280, 291)
+# annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2903')
+# getResizedImageData(annotationDict, 64, 64)
 
 
 #generateAllResizedImages(64, 64, (0, 255, 0))

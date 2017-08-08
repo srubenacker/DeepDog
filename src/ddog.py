@@ -1,6 +1,6 @@
 import util
 import json
-
+import numpy as np
 
 class DeepDog:
 
@@ -10,7 +10,10 @@ class DeepDog:
         self.image_width = imageWidth
         self.image_height = imageHeight
 
+        # load the one hot encodings from file
         self.one_hot_encodings = self.loadOneHotEncodings()
+
+        # load the test set from file
         self.test_set_images, self.test_set_labels = [], []
         self.loadTestSet()
 
@@ -44,10 +47,12 @@ class DeepDog:
         input: none
 
         output: (saves to member lists, doesn't return)
-            testImages: numpy array [testSetSize x [imageWidth x imageHeight]]
+            testImages: numpy array [testSetSize x [imageWidth x imageHeight x 3]]
 
             testLabels: numpy array [testSetSize x [numImageClasses]] 
         """
+        print("Loading test set...\n")
+
         testing_breeds = {}
         with open('testing_annotations.json', 'r') as data_file:
             testing_breeds = json.load(data_file)
@@ -63,6 +68,11 @@ class DeepDog:
                 # append the image label's one hot encoding to testLabels
                 self.test_set_labels.append(self.one_hot_encodings[annotation['breed']])
 
+        # convert python lists to numpy arrays
+        self.test_set_images = np.array(self.test_set_images)
+        self.test_set_labels = np.array(self.test_set_labels)
+
+        print("Finished loading test set.....\n")
 
     ####################################################
     ################ Public Interface ##################
@@ -82,7 +92,7 @@ class DeepDog:
             in the mini batch returned by getNextMiniBatch
 
         output:
-            batchImages: numpy array [batchSize x [imageWidth x imageHeight]]
+            batchImages: numpy array [batchSize x [imageWidth x imageHeight x 3]]
 
             batchLabels: numpy array [batchSize x [numImageClasses]]
         """
@@ -92,14 +102,14 @@ class DeepDog:
     def getTestImagesAndLabels(self):
         """
         getTestImagesAndLabels returns a 2-tuple of (testImages, testLabels).
-        testImages and testLabels are both arrays, where the image 
+        testImages and testLabels are both numpy arrays, where the image 
         at index i in testImages corresponds to the label at index i in 
         testLabels.  
 
         input: none
 
         output:
-            testImages: numpy array [testSetSize x [imageWidth x imageHeight]]
+            testImages: numpy array [testSetSize x [imageWidth x imageHeight x 3]]
 
             testLabels: numpy array [testSetSize x [numImageClasses]] 
         """
@@ -119,6 +129,8 @@ class DeepDog:
         pass
 
 
-dd = DeepDog(280, 291)
+dd = DeepDog(64, 64)
 im, la = dd.getTestImagesAndLabels()
-print(len(im), len(la))
+print(im.shape, la.shape)
+print(im)
+print(la)

@@ -1,6 +1,7 @@
 import util
 import json
 import numpy as np
+import random
 
 class DeepDog:
 
@@ -11,11 +12,25 @@ class DeepDog:
         self.image_height = imageHeight
 
         # load the one hot encodings from file
-        self.one_hot_encodings = self.loadOneHotEncodings()
+        self.one_hot_encodings = {}
+        self.loadOneHotEncodings()
 
         # load the test set from file
         self.test_set_images, self.test_set_labels = [], []
         self.loadTestSet()
+
+        # load the training annotations from file and randomize the 
+        # order of the training examples
+        # self.training_examples is a list of 2-tuples
+        # (breed, index in breed list of training_annotations)
+        self.training_annotations = {}
+        self.training_examples = []
+        self.training_set_size = 0
+        self.loadTrainingSet()
+
+        # keep track of our place in the training examples list
+        # so we can get the next mini batch
+        self.current_training_index = 0
 
 
     ####################################################
@@ -30,13 +45,45 @@ class DeepDog:
 
         input: none
 
-        output:
-            oneHotEncodingsDictionary: dictionary, {'breed': [1, 0, 0]}
+        output: (doesn't return, saves to member variable)
+            self.one_hot_encodings: dictionary, {'breed': [1, 0, 0]}
         """
-        oneHotEncodings = {}
         with open('one_hot_encodings.json', 'r') as data_file:
-            oneHotEncodings = json.load(data_file)
-        return oneHotEncodings
+            self.one_hot_encodings = json.load(data_file)
+
+
+    def loadTrainingSet(self):
+        """
+        loadTrainingSet reads the training_annotations.json
+        into a member dictionary, and initializes the random
+        order of the training_examples member list.
+
+        input: none
+
+        output: (doesn't return, saves to member variables)
+            self.training_annotations: dictionary, {'breed': [list of annotations]}
+
+            self.training_examples: list of 2-tuples
+                [(breed, index into list of self.training_annotations), ...]
+        """
+        print("Initializing training set order...\n")
+
+        # load the training_annotations
+        with open('training_annotations.json', 'r') as data_file:
+            self.training_annotations = json.load(data_file)
+
+        # create the list of 2-tuples of training examples (breed, index)
+        for breed in self.training_annotations.keys():
+            for i, _ in enumerate(self.training_annotations[breed]):
+                self.training_examples.append((breed, i))
+
+        self.training_set_size = len(self.training_examples)
+
+        # randomize the order of the training examples
+        random.shuffle(self.training_examples)
+        print(self.training_examples)
+
+        print("Finished initializing training set order...\n")
 
 
     def loadTestSet(self):
@@ -73,6 +120,7 @@ class DeepDog:
         self.test_set_labels = np.array(self.test_set_labels)
 
         print("Finished loading test set.....\n")
+
 
     ####################################################
     ################ Public Interface ##################
@@ -126,7 +174,7 @@ class DeepDog:
         output:
             trainingSetSize: int, number of examples in the training set
         """
-        pass
+        return self.training_set_size
 
 
 dd = DeepDog(64, 64)

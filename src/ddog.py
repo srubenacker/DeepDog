@@ -30,7 +30,7 @@ class DeepDog:
 
         # keep track of our place in the training examples list
         # so we can get the next mini batch
-        self.current_training_index = 0
+        self.current_index = 0
 
 
     ####################################################
@@ -144,7 +144,31 @@ class DeepDog:
 
             batchLabels: numpy array [batchSize x [numImageClasses]]
         """
-        pass
+        batchImages = []
+        batchLabels = []
+
+        # if we have reached the end of the training examples, 
+        # reshuffle the training examples and start from the 
+        # beginning of the list
+        if self.current_index + batchSize > self.training_set_size:
+            self.current_index = 0
+            random.shuffle(self.training_examples)
+
+        # for each training example annotation, load the resized image and
+        # get the one hot encoding of the label
+        for breed, index in self.training_examples[self.current_index:self.current_index+batchSize]:
+            annotation = self.training_annotations[breed][index]
+
+            # get the image data for the training example
+            batchImages.append(util.getResizedImageData(annotation, 
+                self.image_width, self.image_height))
+
+            # get the one hot encoding of the label
+            batchLabels.append(self.one_hot_encodings[breed])
+
+        self.current_index += batchSize
+
+        return np.array(batchImages), np.array(batchLabels)
 
 
     def getTestImagesAndLabels(self):

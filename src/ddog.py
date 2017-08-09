@@ -5,7 +5,7 @@ import random
 
 class DeepDog:
 
-    def __init__(self, imageWidth, imageHeight):
+    def __init__(self, imageWidth, imageHeight, trainingInRAM=False, classStratify=False):
         """
         """
         self.image_width = imageWidth
@@ -150,6 +150,10 @@ class DeepDog:
         # if we have reached the end of the training examples, 
         # reshuffle the training examples and start from the 
         # beginning of the list
+        # in the event that the number of training examples
+        # is not evenly divisable by the batchSize,
+        # some training examples will be skipped during this reshuffling
+        # i trade this off for decreased code complexity
         if self.current_index + batchSize > self.training_set_size:
             self.current_index = 0
             random.shuffle(self.training_examples)
@@ -202,7 +206,8 @@ class DeepDog:
 
 
 dd = DeepDog(64, 64)
-im, la = dd.getTestImagesAndLabels()
+im, la = dd.getNextMiniBatch(100)
 print(im.shape, la.shape)
 print(im)
 print(la)
+

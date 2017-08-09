@@ -7,6 +7,24 @@ class DeepDog:
 
     def __init__(self, imageWidth, imageHeight, trainingInRAM=False, classStratify=False):
         """
+        The constructor loads the one hot encodings and the entire test set into RAM.
+        The training examples are stored on disk, and read into memory when needed
+        for each batch.  
+
+        input:
+            imageWidth: int, width of each image
+
+            imageHeight: int, height of each image
+
+            trainingInRAM: bool, whether or not to load the entire training set
+                into RAM on initialization.  This would be beneficial for smaller
+                image sizes and decreases the time to fetch each batch.
+                (not implemented yet)
+
+            classStratify: bool, whether or not each batch should be equally 
+                represented by each breed class i.e. in a batch size of 120,
+                each breed would show up once in the batch
+                (not implemented yet)
         """
         self.image_width = imageWidth
         self.image_height = imageHeight
@@ -205,9 +223,13 @@ class DeepDog:
         return self.training_set_size
 
 
-dd = DeepDog(64, 64)
-im, la = dd.getNextMiniBatch(100)
-print(im.shape, la.shape)
-print(im)
-print(la)
+def main():
+    dd = DeepDog(64, 64)
+    im, la = dd.getNextMiniBatch(100)
+    print(im.shape, la.shape)
+    print(im)
+    print(la)
 
+
+if __name__ == "__main__":
+    main()

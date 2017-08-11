@@ -1,0 +1,56 @@
+import tensorflow as tf
+import tensorflowvisu
+import time
+import ddog
+
+# keep track of how long training takes
+startTime = time.time()
+endTime = time.time()
+
+# set the seed and make sure tensorflow is working
+print("Tensorflow version " + tf.__version__)
+tf.set_random_seed(0)
+
+# configure the dimensions of the training images
+# and mini batch size
+IMAGE_WIDTH = 64
+IMAGE_HEIGHT = 64
+BATCH_SIZE = 100
+NUM_BREEDS = 120
+
+# neural network with 1 input layer, and 1 fully connected output layer
+# 
+# x_1 x_2 x_3 ... x_12288 (input layer, flattened rgb pixels) X: [batch size, 12288]
+#  \   /   \  ...    /                                        64 * 64 * 3 = 12,288
+# <fully connected weights layer, biases>                     W: [12288, 120], b: [120]
+#  \.../  ...  \.../                                          1,474,560 weights
+# breed_0 ... breed_119 (output layer, softmax)               Y: [batch size, 120]
+#                                                             120 dog breeds
+
+# The model
+# 
+# Y = softmax(X * W + b)
+# X: matrix of 100 color images of 64x64 pixels, flattened
+# W: weight matrix with 1,474,560 weights, 120 columns
+# X * W: [100, 120]
+# b: bias vector with 120 dimensions
+# +: add with broadcasting: adds the vector to each line of the matrix (numpy)
+# Y: output matrix with 100 lines and 120 columns
+
+# load the dog breed images and labels
+deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT)
+
+# input X: 64x64 color images [batch size, height, width, color channels]
+X = tf.placeholder(tf.float16, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+# labels for each image
+Y_ = tf.placeholder(tf.float16, [None, NUM_BREEDS])
+# weights W[12288, 120] 12,288 = 64*64*3
+W = tf.Variable(tf.zeros([IMAGE_HEIGHT * IMAGE_WIDTH * 3, NUM_BREEDS]))
+# biases b[120]
+b = tf.Variable(tf.zeros([NUM_BREEDS]))
+
+# flatten the image into a single line of pixels
+XX = tf.reshape(X, [-1, IMAGE_HEIGHT * IMAGE_WIDTH * 3])
+
+# the model
+Y = tf.nn.softmax(tf.matmul(XX, W) + b)

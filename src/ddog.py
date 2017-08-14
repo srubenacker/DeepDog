@@ -99,7 +99,6 @@ class DeepDog:
 
         # randomize the order of the training examples
         random.shuffle(self.training_examples)
-        print(self.training_examples)
 
         print("Finished initializing training set order...\n")
 

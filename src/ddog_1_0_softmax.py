@@ -1,5 +1,4 @@
 import tensorflow as tf
-import tensorflowvisu
 import time
 import ddog
 
@@ -45,9 +44,9 @@ X = tf.placeholder(tf.float16, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
 # labels for each image
 Y_ = tf.placeholder(tf.float16, [None, NUM_BREEDS])
 # weights W[12288, 120] 12,288 = 64*64*3
-W = tf.Variable(tf.zeros([IMAGE_HEIGHT * IMAGE_WIDTH * 3, NUM_BREEDS]))
+W = tf.Variable(tf.zeros([IMAGE_HEIGHT * IMAGE_WIDTH * 3, NUM_BREEDS], dtype=tf.float16))
 # biases b[120]
-b = tf.Variable(tf.zeros([NUM_BREEDS]))
+b = tf.Variable(tf.zeros([NUM_BREEDS], dtype=tf.float16))
 
 # flatten the image into a single line of pixels
 XX = tf.reshape(X, [-1, IMAGE_HEIGHT * IMAGE_WIDTH * 3])

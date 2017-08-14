@@ -54,3 +54,84 @@ XX = tf.reshape(X, [-1, IMAGE_HEIGHT * IMAGE_WIDTH * 3])
 
 # the model
 Y = tf.nn.softmax(tf.matmul(XX, W) + b)
+
+# the loss function: cross entropy
+# cross entropy: -SUM(LABEL_i * log(PREDICTION_i))
+# multiply by the batch size to normalize for multiple images instead of 1
+# multiply by number of breeds (classes) because reduce_mean takes a mean
+# and divides by the number of classes
+# -------------------------------------------------------------------------
+# log takes the log of each element in the array
+# * multiplies elementwise
+# reduce_mean sums all the elements in the array and divides by the # elems
+cross_entropy = -tf.reduce_mean(Y_ * tf.log(Y)) * BATCH_SIZE * NUM_BREEDS
+
+# accuracy of model (0 is worst, 1 is best)
+correct_prediction = tf.equal(tf.argmax(Y, 1), tf.argmax(Y_, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float16))
+
+# training step, learning rate = 0.005
+# minimize the loss function
+LEARNING_RATE = 0.005
+train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(cross_entropy)
+
+# initialize all the weights and biases
+init = tf.global_variables_initializer()
+sess = tf.Session()
+sess.run(init)
+
+def training_step(i, eval_test_data, eval_train_data):
+
+    # get the training images and labels of size BATCH_SIZE
+    batch_X, batch_Y = deepDog.getNextMiniBatch(BATCH_SIZE)
+
+    print('Iteration ' + str(i))
+    print('Batch X: ' + str(batch_X))
+    print('Batch X Shape: ' + str(batch_X.shape))
+    print('Batch Y: ' + str(batch_Y))
+    print('Batch Y Shape: ' + str(batch_Y.shape))
+
+    # evaluate the performance on the training data
+    if eval_train_data:
+        acc, cross = sess.run([accuracy, cross_entropy], 
+            feed_dict={X:batch_X, Y_: batch_Y})
+
+        print('Iteration ' + str(i) + ': Training Accuracy: ' + \
+            str(acc) + ': Training Loss: ' + str(cross))
+
+    # evaluate the performance on the test data
+    if eval_test_data:
+        test_X, test_Y = deepDog.getTestImagesAndLabels()
+        trainingSetSize = deepDog.getTrainingSetSize()
+        acc, cross = sess.run([accuracy, cross_entropy], 
+            feed_dict={X:test_X, Y_: test_Y})
+
+        epochNum = (i * BATCH_SIZE) // trainingSetSize 
+        print('********* Epoch ' + str(epochNum) + ' *********')
+        print('Iteration ' + str(i) + ': Test Accuracy: ' + \
+            str(acc) + ': Test Loss: ' + str(cross))
+        
+        if acc > max_test_acc:
+            max_test_acc = acc
+
+    # run the training step
+    sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y})
+    endTime = time.time()
+
+NUM_ITERATIONS = 2001
+max_test_acc = 0
+for i in range(NUM_ITERATIONS):
+    training_step(i, i % 50 == 0, i % 10 == 0)
+
+print('Max Test Accuracy: ' + str(max_test_acc))
+print('Time Elapsed (seconds): ' + str(endTime - startTime))
+
+
+
+
+
+
+
+
+
+

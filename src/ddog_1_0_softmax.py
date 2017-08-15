@@ -38,7 +38,7 @@ FLOAT_TYPE = tf.float32
 # Y: output matrix with 100 lines and 120 columns
 
 # load the dog breed images and labels
-deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT)
+deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True)
 
 # input X: 64x64 color images [batch size, height, width, color channels]
 X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])

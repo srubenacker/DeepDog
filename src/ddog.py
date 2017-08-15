@@ -19,7 +19,6 @@ class DeepDog:
             trainingInRAM: bool, whether or not to load the entire training set
                 into RAM on initialization.  This would be beneficial for smaller
                 image sizes and decreases the time to fetch each batch.
-                (not implemented yet)
 
             classStratify: bool, whether or not each batch should be equally 
                 represented by each breed class i.e. in a batch size of 120,
@@ -28,10 +27,12 @@ class DeepDog:
         """
         self.image_width = imageWidth
         self.image_height = imageHeight
+        self.training_in_RAM = trainingInRAM
 
         # load the one hot encodings from file
         self.one_hot_encodings = {}
         self.loadOneHotEncodings()
+        self.numberBreeds = float(len(self.one_hot_encodings.keys()))
 
         # load the test set from file
         self.test_set_images, self.test_set_labels = [], []
@@ -41,7 +42,11 @@ class DeepDog:
         # order of the training examples
         # self.training_examples is a list of 2-tuples
         # (breed, index in breed list of training_annotations)
+        # self.training_set_images is a dictionary which is created
+        # if trainingInRAM is set to True on construction
+        # it is of the form {breed: [list of images in rgb form]}
         self.training_annotations = {}
+        self.training_set_images = {}
         self.training_examples = []
         self.training_set_size = 0
         self.loadTrainingSet()
@@ -91,9 +96,18 @@ class DeepDog:
             self.training_annotations = json.load(data_file)
 
         # create the list of 2-tuples of training examples (breed, index)
-        for breed in self.training_annotations.keys():
-            for i, _ in enumerate(self.training_annotations[breed]):
+        for i, breed in enumerate(self.training_annotations.keys()):
+            if self.training_in_RAM:
+                print(str(round(i / self.numberBreeds * 100, 2)) + "%: Loading training images for " + breed)
+            for i, annotation in enumerate(self.training_annotations[breed]):
                 self.training_examples.append((breed, i))
+                # if training_in_RAM is True, load the image from disk
+                if self.training_in_RAM:
+                    currentImage = util.getResizedImageData(annotation, self.image_width, self.image_height)
+                    if breed not in self.training_set_images:
+                        self.training_set_images[breed] = [currentImage]
+                    else:
+                        self.training_set_images[breed].append(currentImage)
 
         self.training_set_size = len(self.training_examples)
 
@@ -122,7 +136,7 @@ class DeepDog:
             testing_breeds = json.load(data_file)
 
         for i, breed in enumerate(testing_breeds.keys()):
-            print(str(round(i / 120.0 * 100, 2)) + "%: Loading test images for " + breed)
+            print(str(round(i / self.numberBreeds * 100, 2)) + "%: Loading test images for " + breed)
             
             for annotation in testing_breeds[breed]:
                 # append the image data to testImages
@@ -178,11 +192,17 @@ class DeepDog:
         # for each training example annotation, load the resized image and
         # get the one hot encoding of the label
         for breed, index in self.training_examples[self.current_index:self.current_index+batchSize]:
-            annotation = self.training_annotations[breed][index]
 
-            # get the image data for the training example
-            batchImages.append(util.getResizedImageData(annotation, 
-                self.image_width, self.image_height))
+            # if the training data is already in RAM, read it from self.training_set_images
+            # otherwise, fetch the image from disk
+            if self.training_in_RAM:
+                batchImages.append(self.training_set_images[breed][index])
+            else:
+                annotation = self.training_annotations[breed][index]
+
+                # get the image data for the training example
+                batchImages.append(util.getResizedImageData(annotation, 
+                    self.image_width, self.image_height))
 
             # get the one hot encoding of the label
             batchLabels.append(self.one_hot_encodings[breed])

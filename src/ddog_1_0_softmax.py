@@ -14,7 +14,7 @@ tf.set_random_seed(0)
 # and mini batch size
 IMAGE_WIDTH = 64
 IMAGE_HEIGHT = 64
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
 
@@ -85,7 +85,7 @@ init = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init)
 
-def training_step(i, eval_test_data, eval_train_data, max_test_acc):
+def training_step(i, eval_test_data, eval_train_data):
 
     # get the training images and labels of size BATCH_SIZE
     batch_X, batch_Y = deepDog.getNextMiniBatch(BATCH_SIZE)
@@ -116,17 +116,19 @@ def training_step(i, eval_test_data, eval_train_data, max_test_acc):
         print('Iteration ' + str(i) + ': Test Accuracy: ' + \
             str(acc) + ': Test Loss: ' + str(cross))
         
+        global max_test_acc
         if acc > max_test_acc:
             max_test_acc = acc
 
     # run the training step
     sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y})
+    global endTime
     endTime = time.time()
 
 NUM_ITERATIONS = 2001
-max_test_acc = 0
+max_test_acc = 0.0
 for i in range(NUM_ITERATIONS):
-    training_step(i, i % 50 == 0, i % 10 == 0, max_test_acc)
+    training_step(i, i % 50 == 0, i % 10 == 0)
 
 print('Max Test Accuracy: ' + str(max_test_acc))
 print('Time Elapsed (seconds): ' + str(endTime - startTime))

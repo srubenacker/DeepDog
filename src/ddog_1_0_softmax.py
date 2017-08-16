@@ -41,11 +41,11 @@ FLOAT_TYPE = tf.float32
 deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True)
 
 # input X: 64x64 color images [batch size, height, width, color channels]
-X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_WIDTH, IMAGE_HEIGHT, 3])
 # labels for each image
 Y_ = tf.placeholder(FLOAT_TYPE, [None, NUM_BREEDS])
 # weights W[12288, 120] 12,288 = 64*64*3
-W = tf.Variable(tf.zeros([IMAGE_HEIGHT * IMAGE_WIDTH * 3, NUM_BREEDS], dtype=FLOAT_TYPE))
+W = tf.Variable(tf.truncated_normal([IMAGE_HEIGHT * IMAGE_WIDTH * 3, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
 # biases b[120]
 b = tf.Variable(tf.zeros([NUM_BREEDS], dtype=FLOAT_TYPE))
 
@@ -75,9 +75,14 @@ cross_entropy = tf.reduce_mean(cross_entropy) * BATCH_SIZE
 correct_prediction = tf.equal(tf.argmax(Y, 1), tf.argmax(Y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, FLOAT_TYPE))
 
-# training step, learning rate = 0.005
+# top k accuracy
+k = 5
+top_k_prediction = tf.nn.in_top_k(Y, tf.argmax(Y_, 1), k)
+top_k_accuracy = tf.reduce_mean(tf.cast(top_k_prediction, FLOAT_TYPE))
+
+# training step, learning rate
 # minimize the loss function
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.001
 train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(cross_entropy)
 
 # initialize all the weights and biases
@@ -98,27 +103,32 @@ def training_step(i, eval_test_data, eval_train_data):
 
     # evaluate the performance on the training data
     if eval_train_data:
-        acc, cross = sess.run([accuracy, cross_entropy], 
+        acc, cross, topk = sess.run([accuracy, cross_entropy, top_k_accuracy], 
             feed_dict={X:batch_X, Y_: batch_Y})
 
         print('Iteration ' + str(i) + ': Training Accuracy: ' + \
-            str(acc) + ': Training Loss: ' + str(cross))
+            str(acc) + ', Training Loss: ' + str(cross) + ', Top ' + \
+            str(k) + ' Accuracy: ' + str(topk))
 
     # evaluate the performance on the test data
     if eval_test_data:
         test_X, test_Y = deepDog.getTestImagesAndLabels()
         trainingSetSize = deepDog.getTrainingSetSize()
-        acc, cross = sess.run([accuracy, cross_entropy], 
+        acc, cross, topk = sess.run([accuracy, cross_entropy, top_k_accuracy], 
             feed_dict={X:test_X, Y_: test_Y})
 
         epochNum = (i * BATCH_SIZE) // trainingSetSize 
         print('********* Epoch ' + str(epochNum) + ' *********')
         print('Iteration ' + str(i) + ': Test Accuracy: ' + \
-            str(acc) + ': Test Loss: ' + str(cross))
+            str(acc) + ', Test Loss: ' + str(cross) + ', Top ' + \
+            str(k) + ' Accuracy: ' + str(topk))
         
         global max_test_acc
+        global max_top_k_acc
         if acc > max_test_acc:
             max_test_acc = acc
+        if topk > max_top_k_acc:
+            max_top_k_acc = topk
 
     # run the training step
     sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y})
@@ -127,10 +137,12 @@ def training_step(i, eval_test_data, eval_train_data):
 
 NUM_ITERATIONS = 2001
 max_test_acc = 0.0
+max_top_k_acc = 0.0
 for i in range(NUM_ITERATIONS):
     training_step(i, i % 50 == 0, i % 10 == 0)
 
-print('Max Test Accuracy: ' + str(max_test_acc))
+print('Max Test Accuracy: ' + str(max_test_acc) + ' Max Top ' + str(k) + \
+    ' Accuracy: ' + str(max_top_k_acc))
 print('Time Elapsed (seconds): ' + str(endTime - startTime))
 
 

@@ -91,8 +91,8 @@ def getAverageImageDimensions():
     # box height:  297.6299319727891
 
 
-ANNOTATION_PATH = 'F:/dogs/annotation/'
-IMAGE_PATH = 'F:/dogs/images/'
+ANNOTATION_PATH = 'M:/dl/dogdata/annotation/'
+IMAGE_PATH = 'M:/dl/dogdata/images/'
 BOX_FOLDER = 'boxes_'
 
 

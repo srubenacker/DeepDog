@@ -1,6 +1,7 @@
 import tensorflow as tf
 import time
 import ddog
+import matplotlib.pyplot as plt
 
 # keep track of how long training takes
 startTime = time.time()
@@ -87,7 +88,10 @@ train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(cross_ent
 
 # initialize all the weights and biases
 init = tf.global_variables_initializer()
-sess = tf.Session()
+
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.5
+sess = tf.Session(config=config)
 sess.run(init)
 
 def training_step(i, eval_test_data, eval_train_data):
@@ -95,7 +99,7 @@ def training_step(i, eval_test_data, eval_train_data):
     # get the training images and labels of size BATCH_SIZE
     batch_X, batch_Y = deepDog.getNextMiniBatch(BATCH_SIZE)
 
-    print('Iteration ' + str(i))
+    # print('Iteration ' + str(i))
     # print('Batch X: ' + str(batch_X))
     # print('Batch X Shape: ' + str(batch_X.shape))
     # print('Batch Y: ' + str(batch_Y))
@@ -110,6 +114,9 @@ def training_step(i, eval_test_data, eval_train_data):
             str(acc) + ', Training Loss: ' + str(cross) + ', Top ' + \
             str(k) + ' Accuracy: ' + str(topk))
 
+        training_accuracies.append((i, acc))
+        training_ce.append((i, cross))
+
     # evaluate the performance on the test data
     if eval_test_data:
         test_X, test_Y = deepDog.getTestImagesAndLabels()
@@ -122,30 +129,53 @@ def training_step(i, eval_test_data, eval_train_data):
         print('Iteration ' + str(i) + ': Test Accuracy: ' + \
             str(acc) + ', Test Loss: ' + str(cross) + ', Top ' + \
             str(k) + ' Accuracy: ' + str(topk))
-        
-        global max_test_acc
-        global max_top_k_acc
-        if acc > max_test_acc:
-            max_test_acc = acc
-        if topk > max_top_k_acc:
-            max_top_k_acc = topk
+
+        test_accuracies.append((i, acc))
+        top_k_test_accuracies.append((i, topk))
+        testing_ce.append((i, cross))
 
     # run the training step
     sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y})
     global endTime
     endTime = time.time()
 
-NUM_ITERATIONS = 2001
-max_test_acc = 0.0
-max_top_k_acc = 0.0
-for i in range(NUM_ITERATIONS):
+NUM_ITERATIONS = 10000
+training_accuracies = []
+test_accuracies = []
+training_ce = []
+testing_ce = []
+top_k_test_accuracies = []
+
+for i in range(NUM_ITERATIONS+1):
     training_step(i, i % 50 == 0, i % 10 == 0)
 
-print('Max Test Accuracy: ' + str(max_test_acc) + ' Max Top ' + str(k) + \
+max_test_acc = max(test_accuracies, key=lambda z: z[1])[1]
+max_top_k_acc = max(top_k_test_accuracies, key=lambda z: z[1])[1]
+print('Max Test Accuracy: ' + str(max_test_acc) + ', Max Top ' + str(k) + \
     ' Accuracy: ' + str(max_top_k_acc))
 print('Time Elapsed (seconds): ' + str(endTime - startTime))
 
+plt.figure(1)
+plt.subplot(211)
+plt.plot(*zip(*training_accuracies), label='Training')
+plt.plot(*zip(*test_accuracies), label='Test')
+plt.xlabel('Iteration')
+plt.ylabel('Accuracy')
+plt.title('Training and Test Accuracies')
 
+plt.subplot(212)
+plt.plot(*zip(*training_ce), label='Training')
+plt.plot(*zip(*testing_ce), label='Test')
+plt.xlabel('Iteration')
+plt.ylabel('Cross Entropy Loss')
+plt.title('Training and Test Loss')
+
+plt.tight_layout()
+plt.legend()
+plt.show()
+
+
+# 10k iterations max test accuracy: 0.0528, max top 5 accuracy: 0.1613
 
 
 

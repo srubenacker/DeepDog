@@ -2,6 +2,7 @@ import tensorflow as tf
 import time
 import ddog
 import matplotlib.pyplot as plt
+import math
 
 # keep track of how long training takes
 startTime = time.time()
@@ -18,14 +19,21 @@ IMAGE_HEIGHT = 64
 BATCH_SIZE = 100
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
+MAX_LR = 0.003
+MIN_LR = 0.0001
+DECAY_SPEED = 2000.0
 
-# neural network with 1 input layer, and 1 fully connected output layer
+# neural network with 1 input layer, 2 hidden layers, and 1 fully connected output layer
 # 
-# x_1 x_2 x_3 ... x_12288 (input layer, flattened rgb pixels) X: [batch size, 12288]
-#  \   /   \  ...    /                                        64 * 64 * 3 = 12,288
-# <fully connected weights layer, biases>                     W: [12288, 120], b: [120]
-#  \.../  ...  \.../                                          1,474,560 weights
-# breed_0 ... breed_119 (output layer, softmax)               Y: [batch size, 120]
+# x_1 x_2 x_3 ... x_12288 (input layer, flattened rgb pixels) X: [batch size, 12288] 64 * 64 * 3 = 12,288
+#  \   /   \  ...    /                                        
+# <fully connected weights layer (sigmoid), biases>           W1: [12288, 512], B1: [512] 6,291,456 weights
+#  \.../  ...  \.../                                          Y1: [batch size, 512]                                     
+# <fully connected weights layer (sigmoid), biases>           W2: [512, 256], B2: [256] 131,072 weights
+# \ ... / ... \ ... /                                         Y2: [batch size, 256]
+# <fully connected layer layer, biases>                       W3: [256, 120], B3: [120] 30,720 weights
+# \ ... / ... \ ... /
+# breed_0 ... breed_119 (output layer, softmax)               Y3: [batch size, 120]
 #                                                             120 dog breeds
 
 # The model
@@ -45,16 +53,30 @@ deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True)
 X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_WIDTH, IMAGE_HEIGHT, 3])
 # labels for each image
 Y_ = tf.placeholder(FLOAT_TYPE, [None, NUM_BREEDS])
-# weights W[12288, 120] 12,288 = 64*64*3
-W = tf.Variable(tf.truncated_normal([IMAGE_HEIGHT * IMAGE_WIDTH * 3, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
-# biases b[120]
-b = tf.Variable(tf.zeros([NUM_BREEDS], dtype=FLOAT_TYPE))
+# variable learning rate
+LR = tf.placeholder(FLOAT_TYPE)
+
+IMAGE_PIXELS = IMAGE_WIDTH * IMAGE_HEIGHT * 3 # 12,288 = 64*64*3
+FIRST_LAYER = 512
+SECOND_LAYER = 256
+THIRD_LAYER = NUM_BREEDS
+# weights W1[12288, 512], biases b[512]
+W1 = tf.Variable(tf.truncated_normal([IMAGE_PIXELS, FIRST_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
+B1 = tf.Variable(tf.ones([FIRST_LAYER], dtype=FLOAT_TYPE) / 10)
+# weights W2[512, 256], biases b[256]
+W2 = tf.Variable(tf.truncated_normal([FIRST_LAYER, SECOND_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
+B2 = tf.Variable(tf.ones([SECOND_LAYER], dtype=FLOAT_TYPE) / 10)
+# weights W3[256, 120], biases b[120]
+W3 = tf.Variable(tf.truncated_normal([SECOND_LAYER, THIRD_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
+B3 = tf.Variable(tf.zeros([THIRD_LAYER], dtype=FLOAT_TYPE))
 
 # flatten the image into a single line of pixels
-XX = tf.reshape(X, [-1, IMAGE_HEIGHT * IMAGE_WIDTH * 3])
+XX = tf.reshape(X, [-1, IMAGE_PIXELS])
 
 # the model
-Ylogits = tf.matmul(XX, W) + b
+Y1 = tf.nn.relu(tf.matmul(XX, W1) + B1)
+Y2 = tf.nn.relu(tf.matmul(Y1, W2) + B2)
+Ylogits = tf.matmul(Y2, W3) + B3
 Y = tf.nn.softmax(Ylogits)
 
 # the loss function: cross entropy
@@ -83,8 +105,8 @@ top_k_accuracy = tf.reduce_mean(tf.cast(top_k_prediction, FLOAT_TYPE))
 
 # training step, learning rate
 # minimize the loss function
-LEARNING_RATE = 0.001
-train_step = tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(cross_entropy)
+# learning rate LR is variable
+train_step = tf.train.AdamOptimizer(LR).minimize(cross_entropy)
 
 # initialize all the weights and biases
 init = tf.global_variables_initializer()
@@ -98,12 +120,6 @@ def training_step(i, eval_test_data, eval_train_data):
 
     # get the training images and labels of size BATCH_SIZE
     batch_X, batch_Y = deepDog.getNextMiniBatch(BATCH_SIZE)
-
-    # print('Iteration ' + str(i))
-    # print('Batch X: ' + str(batch_X))
-    # print('Batch X Shape: ' + str(batch_X.shape))
-    # print('Batch Y: ' + str(batch_Y))
-    # print('Batch Y Shape: ' + str(batch_Y.shape))
 
     # evaluate the performance on the training data
     if eval_train_data:
@@ -134,8 +150,11 @@ def training_step(i, eval_test_data, eval_train_data):
         top_k_test_accuracies.append((i, topk))
         testing_ce.append((i, cross))
 
+    # decay the learning rate
+    learning_rate = MIN_LR + (MAX_LR - MIN_LR) * math.exp(-i/DECAY_SPEED)
+
     # run the training step
-    sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y})
+    sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y, LR: learning_rate})
     global endTime
     endTime = time.time()
 
@@ -174,11 +193,14 @@ plt.tight_layout()
 plt.legend()
 plt.show()
 
-
-# 10k iterations, no hidden layers
-#       max test accuracy: 0.0528, max top 5 accuracy: 0.1613
-
-
+# 10k iterations, single sigmoid hidden layer
+#       max test accuracy: 0.0307, max top 5 accuracy: 0.1259
+# 10k iterations, single Relu hidden layer
+#       max test accuracy: 0.0122, max top 5 accuracy: 0.0562
+# 10k iterations, two sigmoid hidden layers
+#       max test accuracy: 0.0410, max top 5 accuracy: 0.1674
+# 10k iterations, two relu hidden layers
+#       max test accuracy: 0.0545, max top 5 accuracy: 0.2
 
 
 

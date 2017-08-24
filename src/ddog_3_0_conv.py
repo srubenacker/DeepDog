@@ -19,10 +19,12 @@ IMAGE_HEIGHT = 64
 BATCH_SIZE = 100
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
+
 MAX_LR = 0.003
 MIN_LR = 0.0001
 DECAY_SPEED = 2000.0
-PDROP = 0.75
+
+PDROP = 0.5
 
 # fast leaky relu implementation
 # https://github.com/tensorflow/tensorflow/issues/4079
@@ -33,16 +35,20 @@ def lrelu(x, leak=0.1, name="lrelu"):
          return f1 * x + f2 * abs(x)
 
 
-# neural network with 1 input layer, 3 hidden layers, and 1 output layer
-# . . . . . . . . . . . . . .    -- input layer, flattened rgb pixels              X  [batch, 12288]
-# \x/\x/\x/\x/\x/\x/\x/\x/\x/ D  -- fully connected hidden layer (lRelu/dropout)   W1 [12288, 512] B1[512]
-#  .  .  .  .  .  .  .  .  .                                                       Y1 [batch, 512]
-#  \x/\x/\x/\x/\x/\x/\x/\x/   D  -- fully connected hidden layer (lRelu/dropout)   W2 [512,   256] B2[256]
-#   .  .  .  .  .  .  .  .                                                         Y2 [batch, 256]
-#   \x/\x/\x/\x/\x/\x/\x/     D  -- fully connected hidden layer (lRelu/dropout)   W3 [256,   128] B3[128]
-#    .  .  .  .  .  .  .                                                           Y3 [batch, 128]
-#    \x/\x/\x/\x/\x/\x/          -- fully connected output layer (softmax)         W4 [128,   120] B4[120]
-#     .  .  .  .  .  .                                                             Y  [batch, 120]
+# neural network with 3 convolutional layers, no pooling, and 2 fully connected layers (lReLU/softmax)
+# convolutions are for feature learning, fully connected are for classification
+# . . . . . . . . . . . .  (input data, not flattened, 3 channels)  X:  [batch, 64, 64, 3]
+# @ @ @ @ @ @ @ @ @ @ @ @  (conv. layer, 6x6x3=>6 stride 1)         W1: [6, 6, 3, 6]        B1: [6] (width 6, height 6, 3 inputs, 6 outputs)
+# ::::::::::::::::                                                  Y1: [batch, 64, 64, 6]
+#     @ @ @ @ @ @ @ @      (conv. layer, 5x5x6=>8 stride 2)         W2: [5, 5, 6, 8]        B2: [8]
+#     :::::::::                                                     Y2: [batch, 32, 32, 8]
+#       @ @ @ @ @ @        (conv. layer, 4x4x8=>12 stride 2)        W3: [4, 4, 8, 12]       B3: [12]
+#       :::::                                                       Y3: [batch, 16, 16, 12]
+#       \x/x\x/x\x/        (fully connected LReLU layer, flat)      W4: [16*16*12, 128]     B4: [128]
+#        . . . . .                                                  Y4: [batch, 128]
+#        \x/x\x/x/         (fully connected softmax layer)          W5: [128, 120]          B5: [120]
+#         . . . .                                                   Y:  [batch, 120]
+
 
 # load the dog breed images and labels
 deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True)
@@ -56,39 +62,43 @@ LR = tf.placeholder(FLOAT_TYPE)
 # drop out probability
 pkeep = tf.placeholder(FLOAT_TYPE)
 
-IMAGE_PIXELS = IMAGE_WIDTH * IMAGE_HEIGHT * 3 # 12,288 = 64*64*3
-FIRST_LAYER = 256
-SECOND_LAYER = 128
-THIRD_LAYER = 128
-FOURTH_LAYER = NUM_BREEDS
+# three convolutional layers with channel outputs
+A = 6
+B = 8
+C = 12
+D = 128
 
-# weights W1[12288, 512], biases b[512]
-W1 = tf.Variable(tf.truncated_normal([IMAGE_PIXELS, FIRST_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
-B1 = tf.Variable(tf.ones([FIRST_LAYER], dtype=FLOAT_TYPE) / 10)
-# weights W2[512, 256], biases b[256]
-W2 = tf.Variable(tf.truncated_normal([FIRST_LAYER, SECOND_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
-B2 = tf.Variable(tf.ones([SECOND_LAYER], dtype=FLOAT_TYPE) / 10)
-# weights W3[256, 128], biases b[128]
-W3 = tf.Variable(tf.truncated_normal([SECOND_LAYER, THIRD_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
-B3 = tf.Variable(tf.ones([THIRD_LAYER], dtype=FLOAT_TYPE) / 10)
-# weights W4[128, 120], biases b[120]
-W4 = tf.Variable(tf.truncated_normal([THIRD_LAYER, FOURTH_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
-B4 = tf.Variable(tf.zeros([FOURTH_LAYER], dtype=FLOAT_TYPE))
-
-# flatten the image into a single line of pixels
-XX = tf.reshape(X, [-1, IMAGE_PIXELS])
+# weights W1[6, 6, 3, 6], biases b[6] (6x6 patch, 3 input channels, 6 output channels)
+W1 = tf.Variable(tf.truncated_normal([6, 6, 3, A], dtype=FLOAT_TYPE, stddev=0.1))
+B1 = tf.Variable(tf.ones([A], dtype=FLOAT_TYPE) / 10)
+# weights W2[5, 5, 6, 12], biases b[12]
+W2 = tf.Variable(tf.truncated_normal([5, 5, A, B], dtype=FLOAT_TYPE, stddev=0.1))
+B2 = tf.Variable(tf.ones([B], dtype=FLOAT_TYPE) / 10)
+# weights W3[4, 4, 12, 18], biases b[18]
+W3 = tf.Variable(tf.truncated_normal([4, 4, B, C], dtype=FLOAT_TYPE, stddev=0.1))
+B3 = tf.Variable(tf.ones([C], dtype=FLOAT_TYPE) / 10)
+# weights W4[16*16*18, 256], biases b[256]
+W4 = tf.Variable(tf.truncated_normal([16*16*C, D], dtype=FLOAT_TYPE, stddev=0.1))
+B4 = tf.Variable(tf.ones([D], dtype=FLOAT_TYPE) / 10)
+# weights W5[256, 120], biases b[120]
+W5 = tf.Variable(tf.truncated_normal([D, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
+B5 = tf.Variable(tf.ones([NUM_BREEDS], dtype=FLOAT_TYPE) / 10)
 
 # the model
-Y1 = lrelu(tf.matmul(XX, W1) + B1)
-Y1d = tf.nn.dropout(Y1, pkeep)
+stride = 1 # output is 64x64
+Y1 = lrelu(tf.nn.conv2d(X, W1, strides=[1, stride, stride, 1], padding='SAME') + B1)
+stride = 2 # output is 32x32
+Y2 = lrelu(tf.nn.conv2d(Y1, W2, strides=[1, stride, stride, 1], padding='SAME') + B2)
+stride = 2 # output is 16x16
+Y3 = lrelu(tf.nn.conv2d(Y2, W3, strides=[1, stride, stride, 1], padding='SAME') + B3)
 
-Y2 = lrelu(tf.matmul(Y1d, W2) + B2)
-Y2d = tf.nn.dropout(Y2, pkeep)
+# reshape the output from Y3 from the 3rd convolution to the fully connected lrelu layer
+YY = tf.reshape(Y3, shape=[-1, 16*16*C])
+Y4 = lrelu(tf.matmul(YY, W4) + B4)
+Y4d = tf.nn.dropout(Y4, pkeep)
 
-Y3 = lrelu(tf.matmul(Y2d, W3) + B3)
-Y3d = tf.nn.dropout(Y3, pkeep)
-
-Ylogits = tf.matmul(Y3d, W4) + B4
+# softmax layer
+Ylogits = tf.matmul(Y4d, W5) + B5
 Y = tf.nn.softmax(Ylogits)
 
 # the loss function: cross entropy
@@ -124,7 +134,7 @@ train_step = tf.train.AdamOptimizer(LR).minimize(cross_entropy)
 init = tf.global_variables_initializer()
 
 config = tf.ConfigProto()
-config.gpu_options.per_process_gpu_memory_fraction = 0.5
+config.gpu_options.per_process_gpu_memory_fraction = 0.7
 sess = tf.Session(config=config)
 sess.run(init)
 
@@ -205,32 +215,14 @@ plt.tight_layout()
 plt.legend()
 plt.show()
 
-# 10k iterations, single sigmoid hidden layer, W1=512
-#       max test accuracy: 0.0307, max top 5 accuracy: 0.1259
-# 10k iterations, single Relu hidden layer, W1=512
-#       max test accuracy: 0.0122, max top 5 accuracy: 0.0562
-# 10k iterations, single lRelu hidden layer, W1=512
-#       max test accuracy: 0.0668, max top 5 accuracy: 0.1836
-# 10k iterations, single lRelu hidden layer, W1=256
-#       max test accuracy: 0.0612, max top 5 accuracy: 0.1886
+# 10k iterations, 3 conv layers [6,6,3,6], [5,5,6,8], [4,4,8,12], 128 FC LReLU
+#       max test accuracy: ~0.07, max top 5 accuracy: ~0.21
+#       memorized training set, stopped learning
 
-# 10k iterations, two sigmoid hidden layers, W1=512, W2=256
-#       max test accuracy: 0.0410, max top 5 accuracy: 0.1674
-# 10k iterations, two relu hidden layers, W1=512, W2=256
-#       max test accuracy: 0.0545, max top 5 accuracy: 0.2
-# 10k iterations, two lrelu hidden layers, W1=512, W2=256
-#       max test accuracy: 0.0771, max top 5 accuracy: 0.2332
-# 10k iterations, two lrelu hidden layers, W1=256, W2=128
-#       max test accuracy: 0.0805, max top 5 accuracy: 0.2402
-# 10k iterations, two lrelu hidden layers, W1=128, W2=128
-#       max test accuracy: 0.0819, max top 5 accuracy: 0.2410
+# 10k iterations, 3 conv layers [6,6,3,6], [5,5,6,8], [4,4,8,12], 128 FC LReLU, dropout 0.75
+#       max test accuracy: ~0.08, max top 5 accuracy: ~0.22
+#       memorized training set, stopped learning
 
-# 10k iterations, two lrelu hidden layers, W1=128, W2=128, dropout
-#       max test accuracy: 0.0909, max top 5 accuracy: 0.2511
-# 10k iterations, two lrelu hidden layers, W1=256, W2=128, dropout
-#       max test accuracy: 0.0930, max top 5 accuracy: 0.2657
-
-# 10k iterations, three lrelu hidden layers, W1=512, W2=256, W3=128, dropout
-#       max test accuracy: 0.0903, max top 5 accuracy: 0.2702
-# 10k iterations, three lrelu hidden layers, W1=256, W2=128, W3=128, dropout
-#       max test accuracy: 0.0876, max top 5 accuracy: 0.2578
+# 10k iterations, 3 conv layers [6,6,3,6], [5,5,6,8], [4,4,8,12], 128 FC LReLU, dropout 0.5
+#       max test accuracy: ~0.08, max top 5 accuracy: ~0.25
+#       memorized training set, stopped learning

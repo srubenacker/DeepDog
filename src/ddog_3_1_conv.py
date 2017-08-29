@@ -38,23 +38,21 @@ def lrelu(x, leak=0.1, name="lrelu"):
 # neural network with 3 convolutional layers, no pooling, and 2 fully connected layers (lReLU/softmax)
 # convolutions are for feature learning, fully connected are for classification
 # . . . . . . . . . . . .  (input data, not flattened, 3 channels)  X:  [batch, 64, 64, 3]
-# @ @ @ @ @ @ @ @ @ @ @ @  (conv. layer, 6x6x3=>6 stride 1)         W1: [6, 6, 3, 6]        B1: [6] (width 6, height 6, 3 inputs, 6 outputs)
-# ::::::::::::::::                                                  Y1: [batch, 64, 64, 6]
-#     @ @ @ @ @ @ @ @      (conv. layer, 5x5x6=>8 stride 2)         W2: [5, 5, 6, 8]        B2: [8]
-#     :::::::::                                                     Y2: [batch, 32, 32, 8]
-#       @ @ @ @ @ @        (conv. layer, 4x4x8=>12 stride 2)        W3: [4, 4, 8, 12]       B3: [12]
-#       :::::                                                       Y3: [batch, 16, 16, 12]
-#       \x/x\x/x\x/        (fully connected LReLU layer, flat)      W4: [16*16*12, 128]     B4: [128]
-#        . . . . .                                                  Y4: [batch, 128]
-#        \x/x\x/x/         (fully connected softmax layer)          W5: [128, 120]          B5: [120]
-#         . . . .                                                   Y:  [batch, 120]
+# @ @ @ @ @ @ @ @ @ @ @ @  (conv. layer, 6x6x3=>12 stride 1)        W1: [6, 6, 3, 12]        B1: [6] (width 6, height 6, 3 inputs, 12 outputs)
+#       < max pool >       (max pool, 2x2)                          
+#       \x/x\x/x\x/                                                 Y1: [batch, 32, 32, 12]
+#                                                                   W2: [32*32*12, 128]      B2: [128]
+#                                                                   Y2: [batch, 128] 
+#                                                                   W3: [128, 120]           B3: [120]
+#                                                                   Y:  [batch, 120]
+# Conv -> LReLU -> Pool -> Dense LReLU -> Softmax
 
 
 # load the dog breed images and labels
 deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True)
 
 # input X: 64x64 color images [batch size, height, width, color channels]
-X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_WIDTH, IMAGE_HEIGHT, 3])
+X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
 # labels for each image
 Y_ = tf.placeholder(FLOAT_TYPE, [None, NUM_BREEDS])
 # variable learning rate
@@ -63,42 +61,34 @@ LR = tf.placeholder(FLOAT_TYPE)
 pkeep = tf.placeholder(FLOAT_TYPE)
 
 # three convolutional layers with channel outputs
-A = 6
-B = 8
-C = 12
-D = 128
+A = 8
+D = 32
 
-# weights W1[6, 6, 3, 6], biases b[6] (6x6 patch, 3 input channels, 6 output channels)
-W1 = tf.Variable(tf.truncated_normal([6, 6, 3, A], dtype=FLOAT_TYPE, stddev=0.1))
+# weights W1[5, 5, 3, 8], biases b[12] (6x6 patch, 3 input channels, 12 output channels)
+W1 = tf.Variable(tf.truncated_normal([5, 5, 3, A], dtype=FLOAT_TYPE, stddev=0.1))
 B1 = tf.Variable(tf.ones([A], dtype=FLOAT_TYPE) / 10)
-# weights W2[5, 5, 6, 12], biases b[12]
-W2 = tf.Variable(tf.truncated_normal([5, 5, A, B], dtype=FLOAT_TYPE, stddev=0.1))
-B2 = tf.Variable(tf.ones([B], dtype=FLOAT_TYPE) / 10)
-# weights W3[4, 4, 12, 18], biases b[18]
-W3 = tf.Variable(tf.truncated_normal([4, 4, B, C], dtype=FLOAT_TYPE, stddev=0.1))
-B3 = tf.Variable(tf.ones([C], dtype=FLOAT_TYPE) / 10)
-# weights W4[16*16*18, 256], biases b[256]
-W4 = tf.Variable(tf.truncated_normal([16*16*C, D], dtype=FLOAT_TYPE, stddev=0.1))
-B4 = tf.Variable(tf.ones([D], dtype=FLOAT_TYPE) / 10)
-# weights W5[256, 120], biases b[120]
-W5 = tf.Variable(tf.truncated_normal([D, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
-B5 = tf.Variable(tf.ones([NUM_BREEDS], dtype=FLOAT_TYPE) / 10)
+
+W2 = tf.Variable(tf.truncated_normal([32*32*A, D], dtype=FLOAT_TYPE, stddev=0.1))
+B2 = tf.Variable(tf.ones([D], dtype=FLOAT_TYPE) / 10)
+
+W3 = tf.Variable(tf.truncated_normal([D, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
+B3 = tf.Variable(tf.ones([NUM_BREEDS], dtype=FLOAT_TYPE) / 10)
 
 # the model
-stride = 1 # output is 64x64
+stride = 1
+pool = 2
 Y1 = lrelu(tf.nn.conv2d(X, W1, strides=[1, stride, stride, 1], padding='SAME') + B1)
-stride = 2 # output is 32x32
-Y2 = lrelu(tf.nn.conv2d(Y1, W2, strides=[1, stride, stride, 1], padding='SAME') + B2)
-stride = 2 # output is 16x16
-Y3 = lrelu(tf.nn.conv2d(Y2, W3, strides=[1, stride, stride, 1], padding='SAME') + B3)
+# ksize is size of pool (i.e. 2x2), strides is how to move the pool (i.e. move 2 over and 2 down)
+# Y1P is 32x32 after pooling
+Y1P = tf.nn.max_pool(Y1, ksize=[1, pool, pool, 1], strides=[1, pool, pool, 1], padding='SAME')
 
-# reshape the output from Y3 from the 3rd convolution to the fully connected lrelu layer
-YY = tf.reshape(Y3, shape=[-1, 16*16*C])
-Y4 = lrelu(tf.matmul(YY, W4) + B4)
-Y4d = tf.nn.dropout(Y4, pkeep)
+# reshape the output from Y1P from the convolution to the fully connected lrelu layer
+Y1P_RESHAPE = tf.reshape(Y1P, shape=[-1, 32*32*A])
+Y2 = lrelu(tf.matmul(Y1P_RESHAPE, W2) + B2)
+Y2d = tf.nn.dropout(Y2, pkeep)
 
 # softmax layer
-Ylogits = tf.matmul(Y4d, W5) + B5
+Ylogits = tf.matmul(Y2d, W3) + B3
 Y = tf.nn.softmax(Ylogits)
 
 # the loss function: cross entropy
@@ -215,14 +205,6 @@ plt.tight_layout()
 plt.legend()
 plt.show()
 
-# 10k iterations, 3 conv layers [6,6,3,6], [5,5,6,8], [4,4,8,12], 128 FC LReLU
-#       max test accuracy: ~0.07, max top 5 accuracy: ~0.21
-#       memorized training set, stopped learning
+# 10k iterations, 1 conv layer [5,5,3,8], 2x2 max pooling, 32 FC LReLU
+#       max test accuracy: 0.0887, max top 5 accuracy: 0.2461
 
-# 10k iterations, 3 conv layers [6,6,3,6], [5,5,6,8], [4,4,8,12], 128 FC LReLU, dropout 0.75
-#       max test accuracy: ~0.08, max top 5 accuracy: ~0.22
-#       memorized training set, stopped learning
-
-# 10k iterations, 3 conv layers [6,6,3,6], [5,5,6,8], [4,4,8,12], 128 FC LReLU, dropout 0.5
-#       max test accuracy: ~0.08, max top 5 accuracy: ~0.25
-#       memorized training set, stopped learning

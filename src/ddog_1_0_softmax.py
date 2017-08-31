@@ -13,8 +13,8 @@ tf.set_random_seed(0)
 
 # configure the dimensions of the training images
 # and mini batch size
-IMAGE_WIDTH = 64
-IMAGE_HEIGHT = 64
+IMAGE_WIDTH = 128
+IMAGE_HEIGHT = 128
 BATCH_SIZE = 100
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
@@ -175,10 +175,11 @@ plt.legend()
 plt.show()
 
 
-# 10k iterations, no hidden layers
+# 10k iterations, no hidden layers, 64x64 images
 #       max test accuracy: 0.0528, max top 5 accuracy: 0.1613
 
-
+# 10k iterations, no hidden layers, 128x128 images
+#       max test accuracy: 0.0590, max top 5 accuracy: 0.1730
 
 
 

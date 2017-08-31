@@ -14,8 +14,8 @@ tf.set_random_seed(0)
 
 # configure the dimensions of the training images
 # and mini batch size
-IMAGE_WIDTH = 64
-IMAGE_HEIGHT = 64
+IMAGE_WIDTH = 128
+IMAGE_HEIGHT = 128
 BATCH_SIZE = 100
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
@@ -59,7 +59,7 @@ pkeep = tf.placeholder(FLOAT_TYPE)
 IMAGE_PIXELS = IMAGE_WIDTH * IMAGE_HEIGHT * 3 # 12,288 = 64*64*3
 FIRST_LAYER = 256
 SECOND_LAYER = 128
-THIRD_LAYER = 128
+#THIRD_LAYER = 128
 FOURTH_LAYER = NUM_BREEDS
 
 # weights W1[12288, 512], biases b[512]
@@ -69,11 +69,11 @@ B1 = tf.Variable(tf.ones([FIRST_LAYER], dtype=FLOAT_TYPE) / 10)
 W2 = tf.Variable(tf.truncated_normal([FIRST_LAYER, SECOND_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
 B2 = tf.Variable(tf.ones([SECOND_LAYER], dtype=FLOAT_TYPE) / 10)
 # weights W3[256, 128], biases b[128]
-W3 = tf.Variable(tf.truncated_normal([SECOND_LAYER, THIRD_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
-B3 = tf.Variable(tf.ones([THIRD_LAYER], dtype=FLOAT_TYPE) / 10)
+W3 = tf.Variable(tf.truncated_normal([SECOND_LAYER, FOURTH_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
+B3 = tf.Variable(tf.ones([FOURTH_LAYER], dtype=FLOAT_TYPE) / 10)
 # weights W4[128, 120], biases b[120]
-W4 = tf.Variable(tf.truncated_normal([THIRD_LAYER, FOURTH_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
-B4 = tf.Variable(tf.zeros([FOURTH_LAYER], dtype=FLOAT_TYPE))
+# W4 = tf.Variable(tf.truncated_normal([THIRD_LAYER, FOURTH_LAYER], dtype=FLOAT_TYPE, stddev=0.1))
+# B4 = tf.Variable(tf.zeros([FOURTH_LAYER], dtype=FLOAT_TYPE))
 
 # flatten the image into a single line of pixels
 XX = tf.reshape(X, [-1, IMAGE_PIXELS])
@@ -85,10 +85,10 @@ Y1d = tf.nn.dropout(Y1, pkeep)
 Y2 = lrelu(tf.matmul(Y1d, W2) + B2)
 Y2d = tf.nn.dropout(Y2, pkeep)
 
-Y3 = lrelu(tf.matmul(Y2d, W3) + B3)
-Y3d = tf.nn.dropout(Y3, pkeep)
+#Y3 = lrelu(tf.matmul(Y2d, W3) + B3)
+#Y3d = tf.nn.dropout(Y3, pkeep)
 
-Ylogits = tf.matmul(Y3d, W4) + B4
+Ylogits = tf.matmul(Y2d, W3) + B3
 Y = tf.nn.softmax(Ylogits)
 
 # the loss function: cross entropy
@@ -234,3 +234,6 @@ plt.show()
 #       max test accuracy: 0.0903, max top 5 accuracy: 0.2702
 # 10k iterations, three lrelu hidden layers, W1=256, W2=128, W3=128, dropout
 #       max test accuracy: 0.0876, max top 5 accuracy: 0.2578
+
+# 10k iterations, two lrelu hidden layers, W1=256, W2=128, dropout, 128x128 images
+#       max test accuracy: 0.0986, max top 5 accuracy: 0.2826

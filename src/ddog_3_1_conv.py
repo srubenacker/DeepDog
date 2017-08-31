@@ -14,8 +14,8 @@ tf.set_random_seed(0)
 
 # configure the dimensions of the training images
 # and mini batch size
-IMAGE_WIDTH = 64
-IMAGE_HEIGHT = 64
+IMAGE_WIDTH = 128
+IMAGE_HEIGHT = 128
 BATCH_SIZE = 100
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
@@ -65,10 +65,10 @@ A = 8
 D = 32
 
 # weights W1[5, 5, 3, 8], biases b[12] (6x6 patch, 3 input channels, 12 output channels)
-W1 = tf.Variable(tf.truncated_normal([5, 5, 3, A], dtype=FLOAT_TYPE, stddev=0.1))
+W1 = tf.Variable(tf.truncated_normal([3, 3, 3, A], dtype=FLOAT_TYPE, stddev=0.1))
 B1 = tf.Variable(tf.ones([A], dtype=FLOAT_TYPE) / 10)
 
-W2 = tf.Variable(tf.truncated_normal([32*32*A, D], dtype=FLOAT_TYPE, stddev=0.1))
+W2 = tf.Variable(tf.truncated_normal([64*64*A, D], dtype=FLOAT_TYPE, stddev=0.1))
 B2 = tf.Variable(tf.ones([D], dtype=FLOAT_TYPE) / 10)
 
 W3 = tf.Variable(tf.truncated_normal([D, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
@@ -83,7 +83,7 @@ Y1 = lrelu(tf.nn.conv2d(X, W1, strides=[1, stride, stride, 1], padding='SAME') +
 Y1P = tf.nn.max_pool(Y1, ksize=[1, pool, pool, 1], strides=[1, pool, pool, 1], padding='SAME')
 
 # reshape the output from Y1P from the convolution to the fully connected lrelu layer
-Y1P_RESHAPE = tf.reshape(Y1P, shape=[-1, 32*32*A])
+Y1P_RESHAPE = tf.reshape(Y1P, shape=[-1, 64*64*A])
 Y2 = lrelu(tf.matmul(Y1P_RESHAPE, W2) + B2)
 Y2d = tf.nn.dropout(Y2, pkeep)
 
@@ -208,3 +208,5 @@ plt.show()
 # 10k iterations, 1 conv layer [5,5,3,8], 2x2 max pooling, 32 FC LReLU
 #       max test accuracy: 0.0887, max top 5 accuracy: 0.2461
 
+# 10k iterations, 1 conv layer [5,5,3,8], 2x2 max pooling, 32 FC LReLU, 128x128 images
+#       max test accuracy: 0.0887, max top 5 accuracy: 0.2461

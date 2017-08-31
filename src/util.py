@@ -166,13 +166,16 @@ def getImageFilePathName(annotationDict, newWidth, newHeight):
     return getBoxFolderPathName(annotationDict, newWidth, newHeight) + filename + boxFileEnding
 
 
-def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=(0,0,0)):
+def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None):
     """
     cropSaveBoundedBox crops the image to the pixels designated
     by its bounded box, resizes the image to the provided 
     dimensions (newWidth, newHeight), and saves the new cropped 
     and resized image to disk.  It maintains the aspect ratio
-    of the original image by placing the image on a black background.
+    of the original image by placing the image on a background color,
+    if a background color is given.  If background color is None,
+    the image is resized to newWidth x newHeight, scaling without
+    maintaining aspect ratio.
 
     input:
         annotationDict: dictionary, returned from getAnnotationDict(),
@@ -200,37 +203,51 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=(0,0
                                    annotationDict['xmax'],
                                    annotationDict['ymax']))
 
-    # create an empty black background size of the new image size
-    background = Image.new('RGB', (newWidth, newHeight), backgroundColor)
+    # if a background color is provided, resize the image and maintain aspect ratio
+    # otherwise, don't maintain aspect ratio
+    if backgroundColor is not None:
 
-    # keep the aspect ratio of the bounding box 
-    # if the width is bigger than the height
-    #   boxHeight = (boxHeight / boxWidth) * newWidth
-    # if the height is bigger than the width
-    #   boxWidth = (boxWidth / boxHeight) * newHeight
+        # create an empty black background size of the new image size
+        background = Image.new('RGB', (newWidth, newHeight), backgroundColor)
 
-    boxWidth = annotationDict['xmax'] - annotationDict['xmin']
-    boxHeight = annotationDict['ymax'] - annotationDict['ymin']
+        # keep the aspect ratio of the bounding box 
+        # if the width is bigger than the height
+        #   boxHeight = (boxHeight / boxWidth) * newWidth
+        # if the height is bigger than the width
+        #   boxWidth = (boxWidth / boxHeight) * newHeight
 
-    if boxWidth > boxHeight:
-        boxHeight = int((boxHeight * newWidth) / boxWidth)
-        boxWidth = newWidth
+        boxWidth = annotationDict['xmax'] - annotationDict['xmin']
+        boxHeight = annotationDict['ymax'] - annotationDict['ymin']
+
+        if boxWidth > boxHeight:
+            boxHeight = int((boxHeight * newWidth) / boxWidth)
+            boxWidth = newWidth
+        else:
+            boxWidth = int((boxWidth * newHeight) / boxHeight)
+            boxHeight = newHeight
+
+        # resize the bounding box while keeping the aspect ratio
+        resizedImage = croppedImage.resize((boxWidth, boxHeight), resample=Image.LANCZOS)
+
+        # paste the bounding box with original aspect ratio onto black background
+        background.paste(resizedImage, 
+            (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
+
+        # save the bounding box on black background to disk
+        background.save(getImageFilePathName(annotationDict, newWidth, newHeight))
+
     else:
-        boxWidth = int((boxWidth * newHeight) / boxHeight)
-        boxHeight = newHeight
+        # resize the bounding box but do not maintain the aspect ratio
+        # the image may be stretched
+        resizedImage = croppedImage.resize((newWidth, newHeight), resample=Image.LANCZOS)
 
-    # resize the bounding box while keeping the aspect ratio
-    resizedImage = croppedImage.resize((boxWidth, boxHeight), resample=Image.LANCZOS)
-
-    # paste the bounding box with original aspect ratio onto black background
-    background.paste(resizedImage, 
-        (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
-
-    # save the bounding box on black background to disk
-    background.save(getImageFilePathName(annotationDict, newWidth, newHeight))
+        # save the resized image to disk
+        newImage = Image.new('RGB', (newWidth, newHeight))
+        newImage.paste(resizedImage)
+        newImage.save(getImageFilePathName(annotationDict, newWidth, newHeight), 'jpeg')
 
 
-def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
+def generateAllResizedImages(newWidth, newHeight, backgroundColor=None):
     """ 
     generateAllResizedImages reads each annotation file in 
     /annotation/* and then creates a resized image based on the
@@ -242,7 +259,10 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=(0,0,0)):
 
         newHeight: int, the height for the output image
 
-        backgroundColor: (int, int, int), color for background
+        backgroundColor: (int, int, int), color for background,
+            not providing a background color will resize the image
+            and not maintain the original aspect ratio of the bounding
+            box
 
     output:
         returns nothing, but saves images to the corresponding
@@ -378,16 +398,11 @@ def generateTrainingTestLists(trainingRatio=0.7):
         json.dump(oneHotEncodings, fout)
 
 
-#getAverageImageDimensions()
-#annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2208')
-#cropSaveBoundedBox(annotationDict, 280, 291)
+def main():
+    #generateAllResizedImages(128, 128)
 
-#generateAllResizedImages(280, 291)
+    ad = getAnnotationDict('M:\\dl\\dogdata\\annotation\\n02105855-Shetland_sheepdog\\n02105855_2933')
+    cropSaveBoundedBox(ad, 128, 128)
 
-#generateTrainingTestLists()
-
-# annotationDict = getAnnotationDict('F:/dogs/annotation/n02085620-Chihuahua/n02085620_2903')
-# getResizedImageData(annotationDict, 64, 64)
-
-
-#generateAllResizedImages(64, 64, (0, 255, 0))
+if __name__ == "__main__":
+    main()

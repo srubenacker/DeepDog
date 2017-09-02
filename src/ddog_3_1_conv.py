@@ -16,7 +16,8 @@ tf.set_random_seed(0)
 # and mini batch size
 IMAGE_WIDTH = 128
 IMAGE_HEIGHT = 128
-BATCH_SIZE = 100
+TRAIN_BATCH_SIZE = 100
+TEST_BATCH_SIZE = 500
 NUM_BREEDS = 120
 FLOAT_TYPE = tf.float32
 
@@ -68,6 +69,7 @@ D = 32
 W1 = tf.Variable(tf.truncated_normal([3, 3, 3, A], dtype=FLOAT_TYPE, stddev=0.1))
 B1 = tf.Variable(tf.ones([A], dtype=FLOAT_TYPE) / 10)
 
+# fully connected layer (flatten)
 W2 = tf.Variable(tf.truncated_normal([64*64*A, D], dtype=FLOAT_TYPE, stddev=0.1))
 B2 = tf.Variable(tf.ones([D], dtype=FLOAT_TYPE) / 10)
 
@@ -100,20 +102,22 @@ Y = tf.nn.softmax(Ylogits)
 # log takes the log of each element in the array
 # * multiplies elementwise
 # reduce_mean sums all the elements in the array and divides by the # elems
-# cross_entropy = -tf.reduce_mean(Y_ * tf.log(Y)) * BATCH_SIZE * NUM_BREEDS
+# cross_entropy = -tf.reduce_mean(Y_ * tf.log(Y)) * TRAIN_BATCH_SIZE * NUM_BREEDS
 
 # i was getting NaN with the above cross entropy
 cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels=Y_)
-cross_entropy = tf.reduce_mean(cross_entropy) * BATCH_SIZE
+cross_entropy = tf.reduce_mean(cross_entropy) * TRAIN_BATCH_SIZE
 
 # accuracy of model (0 is worst, 1 is best)
 correct_prediction = tf.equal(tf.argmax(Y, 1), tf.argmax(Y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, FLOAT_TYPE))
+accuracy_count = tf.reduce_sum(tf.cast(correct_prediction, tf.int16))
 
 # top k accuracy
 k = 5
 top_k_prediction = tf.nn.in_top_k(Y, tf.argmax(Y_, 1), k)
 top_k_accuracy = tf.reduce_mean(tf.cast(top_k_prediction, FLOAT_TYPE))
+top_k_accuracy_count = tf.reduce_sum(tf.cast(top_k_prediction, tf.int16))
 
 # training step, learning rate
 # minimize the loss function
@@ -128,10 +132,11 @@ config.gpu_options.per_process_gpu_memory_fraction = 0.7
 sess = tf.Session(config=config)
 sess.run(init)
 
+
 def training_step(i, eval_test_data, eval_train_data):
 
-    # get the training images and labels of size BATCH_SIZE
-    batch_X, batch_Y = deepDog.getNextMiniBatch(BATCH_SIZE)
+    # get the training images and labels of size TRAIN_BATCH_SIZE
+    batch_X, batch_Y = deepDog.getNextMiniBatch(TRAIN_BATCH_SIZE)
 
     # evaluate the performance on the training data
     if eval_train_data:
@@ -149,14 +154,28 @@ def training_step(i, eval_test_data, eval_train_data):
     if eval_test_data:
         test_X, test_Y = deepDog.getTestImagesAndLabels()
         trainingSetSize = deepDog.getTrainingSetSize()
-        acc, cross, topk = sess.run([accuracy, cross_entropy, top_k_accuracy], 
-            feed_dict={X:test_X, Y_: test_Y, pkeep: 1.0})
 
-        epochNum = (i * BATCH_SIZE) // trainingSetSize 
+        correct_count = 0
+        top_k_correct_count = 0
+        testSetSize = test_X.shape[0]
+
+        j = 0
+        while j < testSetSize:
+            start = j 
+            end = j + TEST_BATCH_SIZE
+            cross, acc_count, topk_count = sess.run([cross_entropy, accuracy_count, top_k_accuracy_count], 
+                                                                    feed_dict={X:test_X[start:end], 
+                                                                               Y_: test_Y[start:end], 
+                                                                               pkeep: 1.0})
+            correct_count += acc_count
+            top_k_correct_count += topk_count
+            j += TEST_BATCH_SIZE
+
+        epochNum = (i * TRAIN_BATCH_SIZE) // trainingSetSize 
         print('********* Epoch ' + str(epochNum) + ' *********')
         print('Iteration ' + str(i) + ': Test Accuracy: ' + \
-            str(acc) + ', Test Loss: ' + str(cross) + ', Top ' + \
-            str(k) + ' Accuracy: ' + str(topk))
+            str(correct_count / testSetSize) + ', Test Loss: ' + str(cross) + ', Top ' + \
+            str(k) + ' Accuracy: ' + str(top_k_correct_count / testSetSize))
 
         test_accuracies.append((i, acc))
         top_k_test_accuracies.append((i, topk))
@@ -166,6 +185,8 @@ def training_step(i, eval_test_data, eval_train_data):
     learning_rate = MIN_LR + (MAX_LR - MIN_LR) * math.exp(-i/DECAY_SPEED)
 
     # run the training step
+    # KEEP_PROB is 1.0 when evaluating perf on the training and test sets, and 0.5
+    # when training
     sess.run(train_step, feed_dict={X: batch_X, Y_: batch_Y, LR: learning_rate, pkeep: KEEP_PROB})
     global endTime
     endTime = time.time()
@@ -208,5 +229,5 @@ plt.show()
 # 10k iterations, 1 conv layer [5,5,3,8], 2x2 max pooling, 32 FC LReLU
 #       max test accuracy: 0.0887, max top 5 accuracy: 0.2461
 
-# 10k iterations, 1 conv layer [5,5,3,8], 2x2 max pooling, 32 FC LReLU, 128x128 images
-#       max test accuracy: 0.0887, max top 5 accuracy: 0.2461
+# 10k iterations, 1 conv layer [3,3,3,8], 2x2 max pooling, 32 FC LReLU, 128x128 images
+#       max test accuracy: 0.----, max top 5 accuracy: 0.----

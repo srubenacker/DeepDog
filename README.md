@@ -42,5 +42,5 @@ Top-1 Accuracy: 8.0%, Top-5 Accuracy: 25% (Memorized training set)
 #### 5x5 convolution with 8 outputs, 2x2 max pooling, a fully connected ReLU layer with 32 weights, and dropout with keep probability of 0.5
 Top-1 Accuracy: 8.87%, Top-5 Accuracy: 24.6% (Memorized training set)
 
-#### Increased image size to 128x128 RGB images, all previous images were 64x64 RGB.  Convolutional net inspired by this [VGG paper] (https://arxiv.org/pdf/1409.1556.pdf).  3x3 convolutional filters with 64, 128, 256, 512 weight layers.  Each weight layer is followed by a 2x2 max pooling layer.  The final 512 conv layer is followed by a ReLU fully connected layer with 1024 weights.  Dropout with keep probability 0.5.  Final output layer is softmax.   
+#### Increased image size to 128x128 RGB images, all previous images were 64x64 RGB.  Convolutional net inspired by this [VGG paper](https://arxiv.org/pdf/1409.1556.pdf).  3x3 convolutional filters with 64, 128, 256, 512 weight layers.  Each weight layer is followed by a 2x2 max pooling layer.  The final 512 conv layer is followed by a ReLU fully connected layer with 1024 weights.  Dropout with keep probability 0.5.  Final output layer is softmax.   
 Top-1 Accuracy: 18.71%, Top-5 Accuracy: 44.32% (Memorized training set at iteration 4600)

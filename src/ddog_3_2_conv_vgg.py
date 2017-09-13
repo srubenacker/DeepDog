@@ -60,7 +60,7 @@ def lrelu(x, leak=0.1, name="lrelu"):
 
 
 # load the dog breed images and labels
-deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True)
+deepDog = ddog.DeepDog(IMAGE_WIDTH, IMAGE_HEIGHT, trainingInRAM=True, randomMirroing=True)
 
 # input X: 64x64 color images [batch size, height, width, color channels]
 X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
@@ -208,13 +208,15 @@ def training_step(i, eval_test_data, eval_train_data):
             j += TEST_BATCH_SIZE
 
         epochNum = (i * TRAIN_BATCH_SIZE) // trainingSetSize 
+        test_acc = correct_count / testSetSize
+        test_topk = top_k_correct_count / testSetSize
         print('********* Epoch ' + str(epochNum) + ' *********')
         print('Iteration ' + str(i) + ': Test Accuracy: ' + \
-            str(correct_count / testSetSize) + ', Test Loss: ' + str(cross) + ', Top ' + \
-            str(k) + ' Accuracy: ' + str(top_k_correct_count / testSetSize))
+            str(test_acc) + ', Test Loss: ' + str(cross) + ', Top ' + \
+            str(k) + ' Accuracy: ' + str(test_topk))
 
-        test_accuracies.append((i, acc))
-        top_k_test_accuracies.append((i, topk))
+        test_accuracies.append((i, test_acc))
+        top_k_test_accuracies.append((i, test_topk))
         testing_ce.append((i, cross))
 
     # decay the learning rate
@@ -267,4 +269,9 @@ plt.show()
 
 # 4600 iterations, 3x3 convs: 64, 128, 256, and 512 weight layers, 2x2 max pooling, 1024 FC LReLU
 #       max test accuracy: 0.1871, max top 5 accuracy: 0.4432
+# stopped early at 4600 because training set was memorized
+
+# 4600 iterations, 3x3 convs: 64, 128, 256, and 512 weight layers, 2x2 max pooling, 1024 FC LReLU,
+# random mirroring
+#       max test accuracy: 0.1971, max top 5 accuracy: 0.45
 # stopped early at 4600 because training set was memorized

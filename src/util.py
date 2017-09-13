@@ -4,6 +4,7 @@ import os
 import json
 import csv
 from PIL import Image
+from PIL import ImageOps
 import numpy as np
 
 
@@ -402,7 +403,6 @@ def main():
     #generateAllResizedImages(128, 128)
 
     ad = getAnnotationDict('M:\\dl\\dogdata\\annotation\\n02105855-Shetland_sheepdog\\n02105855_2933')
-    cropSaveBoundedBox(ad, 128, 128)
 
 if __name__ == "__main__":
     main()

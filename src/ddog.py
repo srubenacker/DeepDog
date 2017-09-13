@@ -3,9 +3,16 @@ import json
 import numpy as np
 import random
 
-class DeepDog:
 
-    def __init__(self, imageWidth, imageHeight, trainingInRAM=False, classStratify=False):
+class DeepDog:
+    """
+    The DeepDog class loads the training and test set images from
+    disk into RAM, and provides functions to get the test set
+    and mini batches of the training set. 
+    """
+
+    def __init__(self, imageWidth, imageHeight, trainingInRAM=False, classStratify=False,
+                 randomMirroing=False, randomCropping=False):
         """
         The constructor loads the one hot encodings and the entire test set into RAM.
         The training examples are stored on disk, and read into memory when needed
@@ -24,7 +31,16 @@ class DeepDog:
                 represented by each breed class i.e. in a batch size of 120,
                 each breed would show up once in the batch
                 (not implemented yet)
+
+            randomMirroring: bool, whether or not to randomly mirror individual 
+                training images returned by getNextMiniBatch()
+
+            randomCropping: bool, whether or not to randomly crop individual
+                training images returned by getNextMiniBatch()
         """
+        self.MIRROR_PROBABILITY = 0.5
+        self.randomCropping = randomCropping
+
         self.image_width = imageWidth
         self.image_height = imageHeight
         self.training_in_RAM = trainingInRAM
@@ -96,9 +112,9 @@ class DeepDog:
             self.training_annotations = json.load(data_file)
 
         # create the list of 2-tuples of training examples (breed, index)
-        for i, breed in enumerate(self.training_annotations.keys()):
+        for j, breed in enumerate(self.training_annotations.keys()):
             if self.training_in_RAM:
-                print(str(round(i / self.numberBreeds * 100, 2)) + "%: Loading training images for " + breed)
+                print(str(round(j / self.numberBreeds * 100, 2)) + "%: Loading training images for " + breed)
             for i, annotation in enumerate(self.training_annotations[breed]):
                 self.training_examples.append((breed, i))
                 # if training_in_RAM is True, load the image from disk
@@ -192,18 +208,26 @@ class DeepDog:
         # for each training example annotation, load the resized image and
         # get the one hot encoding of the label
         for breed, index in self.training_examples[self.current_index:self.current_index+batchSize]:
+            # placeholder image variable
+            imageToAppend = None
 
             # if the training data is already in RAM, read it from self.training_set_images
             # otherwise, fetch the image from disk
             if self.training_in_RAM:
-                batchImages.append(self.training_set_images[breed][index])
+                imageToAppend = self.training_set_images[breed][index]
             else:
                 annotation = self.training_annotations[breed][index]
 
                 # get the image data for the training example
-                batchImages.append(util.getResizedImageData(annotation, 
-                    self.image_width, self.image_height))
+                imageToAppend = util.getResizedImageData(annotation, 
+                    self.image_width, self.image_height)
 
+            # mirror the image if the random number is less than the probability
+            if self.randomCropping and random.random() < self.MIRROR_PROBABILITY:
+                imageToAppend = np.fliplr(imageToAppend)
+
+            # finally append the image
+            batchImages.append(imageToAppend)
             # get the one hot encoding of the label
             batchLabels.append(self.one_hot_encodings[breed])
 

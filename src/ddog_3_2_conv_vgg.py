@@ -60,7 +60,7 @@ def lrelu(x, leak=0.1, name="lrelu"):
 
 
 # load the dog breed images and labels
-deepDog = ddog.DeepDog(200, 200, trainingInRAM=True, randomMirroring=True,
+deepDog = ddog.DeepDog(150, 150, trainingInRAM=True, randomMirroring=True,
                        randomCropping=(IMAGE_WIDTH, IMAGE_HEIGHT))
 
 # input X: 64x64 color images [batch size, height, width, color channels]
@@ -180,9 +180,9 @@ def training_step(i, eval_test_data, eval_train_data):
         acc, cross, topk = sess.run([accuracy, cross_entropy, top_k_accuracy], 
             feed_dict={X:batch_X, Y_: batch_Y, pkeep: 1.0})
 
-        print('Iteration ' + str(i) + ': Training Accuracy: ' + \
-            str(acc) + ', Training Loss: ' + str(cross) + ', Top ' + \
-            str(k) + ' Accuracy: ' + str(topk))
+        print('Iter ' + str(i) + ': Train Acc: ' + \
+            str(acc) + ', Train Loss: ' + str(cross) + ', Top-' + \
+            str(k) + ' Acc: ' + str(topk))
 
         training_accuracies.append((i, acc))
         training_ce.append((i, cross))
@@ -209,12 +209,12 @@ def training_step(i, eval_test_data, eval_train_data):
             j += TEST_BATCH_SIZE
 
         epochNum = (i * TRAIN_BATCH_SIZE) // trainingSetSize 
-        test_acc = correct_count / testSetSize
-        test_topk = top_k_correct_count / testSetSize
+        test_acc = round(correct_count / testSetSize, 6)
+        test_topk = round(top_k_correct_count / testSetSize, 6)
         print('********* Epoch ' + str(epochNum) + ' *********')
-        print('Iteration ' + str(i) + ': Test Accuracy: ' + \
-            str(test_acc) + ', Test Loss: ' + str(cross) + ', Top ' + \
-            str(k) + ' Accuracy: ' + str(test_topk))
+        print('Iter ' + str(i) + ': Test Acc: ' + \
+            str(test_acc) + ', Test Loss: ' + str(cross) + ', Top-' + \
+            str(k) + ' Acc: ' + str(test_topk))
 
         test_accuracies.append((i, test_acc))
         top_k_test_accuracies.append((i, test_topk))
@@ -245,8 +245,8 @@ except KeyboardInterrupt:
 
 max_test_acc = max(test_accuracies, key=lambda z: z[1])[1]
 max_top_k_acc = max(top_k_test_accuracies, key=lambda z: z[1])[1]
-print('Max Test Accuracy: ' + str(max_test_acc) + ', Max Top ' + str(k) + \
-    ' Accuracy: ' + str(max_top_k_acc))
+print('Max Test Acc: ' + str(max_test_acc) + ', Max Top-' + str(k) + \
+    ' Acc: ' + str(max_top_k_acc))
 print('Time Elapsed (seconds): ' + str(endTime - startTime))
 
 plt.figure(1)
@@ -278,7 +278,11 @@ plt.show()
 # stopped early at 8050 because training set was memorized
 
 # 200x200 images randomly cropped to 128x128
-# some architecture as above nets
+# same architecture as above nets
 #       max test accuracy: 0.2047, max top 5 accuracy: 0.4845
+
+# 150x150 images randomly cropped to 128x128
+# same architecture as above nets
+#       max test accuracy: 0.3055, max top 5 accuracy: 0.6153
 
 # added normalization of input images, 0 mean, std dev = 1

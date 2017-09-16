@@ -424,7 +424,7 @@ def generateTrainingTestLists(trainingRatio=0.7):
 
 
 def main():
-    #generateAllResizedImages(200, 200)
+    #generateAllResizedImages(150, 150)
 
     #img = Image.open('M:/dl/dogdata/annotation/n02105855-Shetland_sheepdog/n02105855_2933.jpg')
     pass

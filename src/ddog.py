@@ -2,7 +2,7 @@ import util
 import json
 import numpy as np
 import random
-
+import tensorflow as tf
 
 class DeepDog:
     """
@@ -12,7 +12,7 @@ class DeepDog:
     """
 
     def __init__(self, imageWidth, imageHeight, trainingInRAM=False, classStratify=False,
-                 randomMirroing=False, randomCropping=False):
+                 randomMirroring=False, randomCropping=None, normalizeImage=False):
         """
         The constructor loads the one hot encodings and the entire test set into RAM.
         The training examples are stored on disk, and read into memory when needed
@@ -24,22 +24,32 @@ class DeepDog:
             imageHeight: int, height of each image
 
             trainingInRAM: bool, whether or not to load the entire training set
-                into RAM on initialization.  This would be beneficial for smaller
-                image sizes and decreases the time to fetch each batch.
+                           into RAM on initialization.  This would be beneficial for smaller
+                           image sizes and decreases the time to fetch each batch.
 
             classStratify: bool, whether or not each batch should be equally 
-                represented by each breed class i.e. in a batch size of 120,
-                each breed would show up once in the batch
-                (not implemented yet)
+                           represented by each breed class i.e. in a batch size of 120,
+                           each breed would show up once in the batch
+                           (not implemented yet)
 
             randomMirroring: bool, whether or not to randomly mirror individual 
-                training images returned by getNextMiniBatch()
+                             training images returned by getNextMiniBatch()
 
-            randomCropping: bool, whether or not to randomly crop individual
-                training images returned by getNextMiniBatch()
+            randomCropping: tuple, (cropWidth, cropHeight), cropWidth and cropHeight
+                            are the dimensions of the cropped image returned by
+                            getNextMiniBatch()
+
+            normalizeImage: bool, whether or not to scale the images returned
+                            by getNextMiniBatch() to have 0 mean and unit standard
+                            deviation
         """
         self.MIRROR_PROBABILITY = 0.5
+        self.randomMirroring = randomMirroring
         self.randomCropping = randomCropping
+        if self.randomCropping is not None:
+            self.cropWidth = self.randomCropping[0]
+            self.cropHeight = self.randomCropping[1]
+        self.normalizeImage = normalizeImage
 
         self.image_width = imageWidth
         self.image_height = imageHeight
@@ -156,8 +166,12 @@ class DeepDog:
             
             for annotation in testing_breeds[breed]:
                 # append the image data to testImages
-                self.test_set_images.append(util.getResizedImageData(annotation, 
-                    self.image_width, self.image_height))
+                if self.randomCropping is None:
+                    self.test_set_images.append(util.getResizedImageData(annotation, 
+                        self.image_width, self.image_height))
+                else:
+                    self.test_set_images.append(util.getResizedImageData(annotation, 
+                        self.cropWidth, self.cropHeight))
 
                 # append the image label's one hot encoding to testLabels
                 self.test_set_labels.append(self.one_hot_encodings[annotation['breed']])
@@ -223,8 +237,24 @@ class DeepDog:
                     self.image_width, self.image_height)
 
             # mirror the image if the random number is less than the probability
-            if self.randomCropping and random.random() < self.MIRROR_PROBABILITY:
+            if self.randomMirroring and random.random() < self.MIRROR_PROBABILITY:
                 imageToAppend = np.fliplr(imageToAppend)
+
+            # randomly crop the image
+            if self.randomCropping is not None:
+                widthDiff = self.image_width - self.cropWidth
+                heightDiff = self.image_height - self.cropHeight
+
+                widthOffset = int(random.random() * widthDiff)
+                heightOffset = int(random.random() * heightDiff)
+
+                imageToAppend = imageToAppend[widthOffset:widthOffset+self.cropWidth, 
+                                              heightOffset:heightOffset+self.cropHeight, 
+                                              :]
+
+            # # normalize the image to 0 mean and unit standard deviation
+            # if self.normalizeImage:
+            #     imageToAppend = tf.image.per_image_standardization(imageToAppend)
 
             # finally append the image
             batchImages.append(imageToAppend)

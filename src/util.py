@@ -167,7 +167,8 @@ def getImageFilePathName(annotationDict, newWidth, newHeight):
     return getBoxFolderPathName(annotationDict, newWidth, newHeight) + filename + boxFileEnding
 
 
-def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None):
+def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None,
+                       noBackground=False):
     """
     cropSaveBoundedBox crops the image to the pixels designated
     by its bounded box, resizes the image to the provided 
@@ -180,13 +181,20 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None
 
     input:
         annotationDict: dictionary, returned from getAnnotationDict(),
-        contains filename, breed, and other info
+                        contains filename, breed, and other info
 
         newWidth: int, new width in px for resized bounded box
 
         newHeight: int, new height in px for resized bounded box 
 
         backgroundColor: (int, int, int), color for background
+
+        noBackground: bool, if true, crops the image to its bounding
+                      box and resizes it to fit inside a box of newWidth
+                      and newHeight, but does not place the image on a 
+                      background color.  the bounding box maintains
+                      its aspect ratio, and the saved image to disk
+                      is of the dimensions of the bounding box.
 
     output:
         returns nothing, will throw exception if crop or save fails
@@ -206,10 +214,7 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None
 
     # if a background color is provided, resize the image and maintain aspect ratio
     # otherwise, don't maintain aspect ratio
-    if backgroundColor is not None:
-
-        # create an empty black background size of the new image size
-        background = Image.new('RGB', (newWidth, newHeight), backgroundColor)
+    if backgroundColor is not None or noBackground:
 
         # keep the aspect ratio of the bounding box 
         # if the width is bigger than the height
@@ -227,12 +232,25 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None
             boxWidth = int((boxWidth * newHeight) / boxHeight)
             boxHeight = newHeight
 
+        # create an empty background size of the bounding box if noBackground is true,
+        # that way we won't see a background color
+        if noBackground:
+            background = Image.new('RGB', (boxWidth, boxHeight), backgroundColor)
+        else:
+            # create an empty background size of the new image size
+            background = Image.new('RGB', (newWidth, newHeight), backgroundColor)
+
         # resize the bounding box while keeping the aspect ratio
         resizedImage = croppedImage.resize((boxWidth, boxHeight), resample=Image.LANCZOS)
 
         # paste the bounding box with original aspect ratio onto black background
-        background.paste(resizedImage, 
-            (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
+        # if there is noBackground, paste the resize image exactly on the background at
+        # (0,0), otherwise, center the bounding box in the background
+        if noBackground:
+            background.paste(resizedImage)
+        else:
+            background.paste(resizedImage, 
+                (int((newWidth - boxWidth) / 2), int((newHeight - boxHeight) / 2)))
 
         # save the bounding box on black background to disk
         background.save(getImageFilePathName(annotationDict, newWidth, newHeight))
@@ -248,7 +266,7 @@ def cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor=None
         newImage.save(getImageFilePathName(annotationDict, newWidth, newHeight), 'jpeg')
 
 
-def generateAllResizedImages(newWidth, newHeight, backgroundColor=None):
+def generateAllResizedImages(newWidth, newHeight, backgroundColor=None, noBackground=False):
     """ 
     generateAllResizedImages reads each annotation file in 
     /annotation/* and then creates a resized image based on the
@@ -261,9 +279,14 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=None):
         newHeight: int, the height for the output image
 
         backgroundColor: (int, int, int), color for background,
-            not providing a background color will resize the image
-            and not maintain the original aspect ratio of the bounding
-            box
+                         not providing a background color will resize the image
+                         and not maintain the original aspect ratio of the bounding
+                         box
+
+        noBackground: bool, crops the bounding box of the image and 
+                      saves the bounding box to disk with no background color,
+                      the saved image will have the dimensions of the bounding box
+                      that fits within an image of newWidth x newHeight
 
     output:
         returns nothing, but saves images to the corresponding
@@ -283,9 +306,10 @@ def generateAllResizedImages(newWidth, newHeight, backgroundColor=None):
                 os.makedirs(boxFolderPath)
 
             # only write a new image if we haven't come across it yet
-            if not os.path.exists(getImageFilePathName(annotationDict, newWidth, newHeight)):
+            if True or not os.path.exists(getImageFilePathName(annotationDict, newWidth, newHeight)):
                 # crop and save the new image file
-                cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor)
+                cropSaveBoundedBox(annotationDict, newWidth, newHeight, backgroundColor,
+                                   noBackground)
 
             count += 1
             if count % 100 == 0:
@@ -400,9 +424,10 @@ def generateTrainingTestLists(trainingRatio=0.7):
 
 
 def main():
-    #generateAllResizedImages(128, 128)
+    #generateAllResizedImages(200, 200)
 
-    ad = getAnnotationDict('M:\\dl\\dogdata\\annotation\\n02105855-Shetland_sheepdog\\n02105855_2933')
-
+    #img = Image.open('M:/dl/dogdata/annotation/n02105855-Shetland_sheepdog/n02105855_2933.jpg')
+    pass
+    
 if __name__ == "__main__":
     main()

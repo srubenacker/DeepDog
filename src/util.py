@@ -423,6 +423,25 @@ def generateTrainingTestLists(trainingRatio=0.7):
         json.dump(oneHotEncodings, fout)
 
 
+def oneHotEncodingToClass(oneHotEncodings):
+    """
+    Generates a dictionary where the key is the index of the one hot encoding,
+    and the value is the class name.
+
+    input:
+        oneHotEncoding: dict, a dictionary where the key is the class name,
+        and the value is the one hot encoding
+
+    output:
+        returns a dictionary where the key is the index of the one hot encoding,
+        and the value is the class name
+    """
+    result = {}
+    for className, oneHotEncoding in oneHotEncodings.items():
+        result[oneHotEncoding.index(1)] = className
+
+    return result
+
 def main():
     #generateAllResizedImages(150, 150)
 

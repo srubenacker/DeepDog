@@ -61,42 +61,42 @@ def lrelu(x, leak=0.1, name="lrelu"):
 
 # load the dog breed images and labels
 deepDog = ddog.DeepDog(150, 150, trainingInRAM=True, randomMirroring=True,
-                       randomCropping=(IMAGE_WIDTH, IMAGE_HEIGHT))
+                       randomCropping=(IMAGE_WIDTH, IMAGE_HEIGHT), normalizeImage=False)
 
 # input X: 64x64 color images [batch size, height, width, color channels]
-X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+X = tf.placeholder(FLOAT_TYPE, [None, IMAGE_HEIGHT, IMAGE_WIDTH, 3], name='X')
 # labels for each image
-Y_ = tf.placeholder(FLOAT_TYPE, [None, NUM_BREEDS])
+Y_ = tf.placeholder(FLOAT_TYPE, [None, NUM_BREEDS], name='Y_')
 # variable learning rate
-LR = tf.placeholder(FLOAT_TYPE)
+LR = tf.placeholder(FLOAT_TYPE, name='LR')
 # drop out probability
-pkeep = tf.placeholder(FLOAT_TYPE)
+pkeep = tf.placeholder(FLOAT_TYPE, name='pkeep')
 
 # convolutional layers
 
 # weights W1[3, 3, 3, 64], biases b[64] (3x3 patch, 3 input channels, 64 output channels)
-conv3_64_w = tf.Variable(tf.truncated_normal([3, 3, 3, 64], dtype=FLOAT_TYPE, stddev=0.1))
-conv3_64_b = tf.Variable(tf.zeros([64], dtype=FLOAT_TYPE))
+conv3_64_w = tf.Variable(tf.truncated_normal([3, 3, 3, 64], dtype=FLOAT_TYPE, stddev=0.1), name='conv3_64_w')
+conv3_64_b = tf.Variable(tf.zeros([64], dtype=FLOAT_TYPE), name='conv3_64_b')
 
 # weights W2[3, 3, 64, 128], biases b[128] (3x3 patch, 64 input channels, 128 output channels)
-conv3_128_w = tf.Variable(tf.truncated_normal([3, 3, 64, 128], dtype=FLOAT_TYPE, stddev=0.1))
-conv3_128_b = tf.Variable(tf.zeros([128], dtype=FLOAT_TYPE))
+conv3_128_w = tf.Variable(tf.truncated_normal([3, 3, 64, 128], dtype=FLOAT_TYPE, stddev=0.1), name='conv3_128_w')
+conv3_128_b = tf.Variable(tf.zeros([128], dtype=FLOAT_TYPE), name='conv3_128_b')
 
 # weights W3[3, 3, 128, 256], biases b[256] (3x3 patch, 128 input channels, 256 output channels)
-conv3_256_w = tf.Variable(tf.truncated_normal([3, 3, 128, 256], dtype=FLOAT_TYPE, stddev=0.1))
-conv3_256_b = tf.Variable(tf.zeros([256], dtype=FLOAT_TYPE))
+conv3_256_w = tf.Variable(tf.truncated_normal([3, 3, 128, 256], dtype=FLOAT_TYPE, stddev=0.1), name='conv3_256_w')
+conv3_256_b = tf.Variable(tf.zeros([256], dtype=FLOAT_TYPE), name='conv3_256_b')
 
 # weights W4[3, 3, 256, 512], biases b[512] (3x3 patch, 256 input channels, 512 output channels)
-conv3_512_w = tf.Variable(tf.truncated_normal([3, 3, 256, 512], dtype=FLOAT_TYPE, stddev=0.1))
-conv3_512_b = tf.Variable(tf.zeros([512], dtype=FLOAT_TYPE))
+conv3_512_w = tf.Variable(tf.truncated_normal([3, 3, 256, 512], dtype=FLOAT_TYPE, stddev=0.1), name='conv3_512_w')
+conv3_512_b = tf.Variable(tf.zeros([512], dtype=FLOAT_TYPE), name='conv3_512_b')
 
 # fully connected layer (flatten)
-fc_w = tf.Variable(tf.truncated_normal([8*8*512, 1024], dtype=FLOAT_TYPE, stddev=0.1))
-fc_b = tf.Variable(tf.zeros([1024], dtype=FLOAT_TYPE))
+fc_w = tf.Variable(tf.truncated_normal([8*8*512, 1024], dtype=FLOAT_TYPE, stddev=0.1), name='fc_w')
+fc_b = tf.Variable(tf.zeros([1024], dtype=FLOAT_TYPE), name='fc_b')
 
 # output layer weights (softmax output)
-output_w = tf.Variable(tf.truncated_normal([1024, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1))
-output_b = tf.Variable(tf.zeros([NUM_BREEDS], dtype=FLOAT_TYPE))
+output_w = tf.Variable(tf.truncated_normal([1024, NUM_BREEDS], dtype=FLOAT_TYPE, stddev=0.1), name='output_w')
+output_b = tf.Variable(tf.zeros([NUM_BREEDS], dtype=FLOAT_TYPE), name='output_b')
 
 # the model
 conv_stride = 1
@@ -128,7 +128,7 @@ Y5d = tf.nn.dropout(Y5, pkeep)
 
 # softmax layer
 Ylogits = tf.matmul(Y5d, output_w) + output_b
-Y = tf.nn.softmax(Ylogits)
+Y = tf.nn.softmax(Ylogits, name='Y')
 
 # the loss function: cross entropy
 # cross entropy: -SUM(LABEL_i * log(PREDICTION_i))
@@ -168,6 +168,9 @@ config = tf.ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.7
 sess = tf.Session(config=config)
 sess.run(init)
+
+# create a saver to save the model after it has been trained
+model_saver = tf.train.Saver()
 
 
 def training_step(i, eval_test_data, eval_train_data):
@@ -230,7 +233,7 @@ def training_step(i, eval_test_data, eval_train_data):
     global endTime
     endTime = time.time()
 
-NUM_ITERATIONS = 10000
+NUM_ITERATIONS = 20000
 training_accuracies = []
 test_accuracies = []
 training_ce = []
@@ -239,9 +242,12 @@ top_k_test_accuracies = []
 
 try:
     for i in range(NUM_ITERATIONS+1):
-        training_step(i, i % 100 == 0, i % 10 == 0)
+        training_step(i, i % 500 == 0, i % 10 == 0)
 except KeyboardInterrupt:
     pass
+
+# save the model
+model_saver.save(sess, "saved_models/09232017_2/test_model")
 
 max_test_acc = max(test_accuracies, key=lambda z: z[1])[1]
 max_top_k_acc = max(top_k_test_accuracies, key=lambda z: z[1])[1]
@@ -285,4 +291,3 @@ plt.show()
 # same architecture as above nets
 #       max test accuracy: 0.3055, max top 5 accuracy: 0.6153
 
-# added normalization of input images, 0 mean, std dev = 1

@@ -40,8 +40,8 @@ class DeepDog:
                             getNextMiniBatch()
 
             normalizeImage: bool, whether or not to scale the images returned
-                            by getNextMiniBatch() to have 0 mean and unit standard
-                            deviation
+                            by getNextMiniBatch() and getTestImagesAndLabesl() to 
+                            have 0 mean and unit standard deviation
         """
         self.MIRROR_PROBABILITY = 0.5
         self.randomMirroring = randomMirroring
@@ -178,6 +178,9 @@ class DeepDog:
 
         # convert python lists to numpy arrays
         self.test_set_images = np.array(self.test_set_images)
+        if self.normalizeImage:
+            print("Normalizing test images...")
+            self.test_set_images = tf.map_fn(tf.image.per_image_standardization, self.test_set_images)
         self.test_set_labels = np.array(self.test_set_labels)
 
         print("Finished loading test set.....\n")
@@ -263,6 +266,9 @@ class DeepDog:
 
         self.current_index += batchSize
 
+        if self.normalizeImage:
+            batchImages = tf.map_fn(tf.image.per_image_standardization, batchImages)
+            return batchImages, np.array(batchLabels)
         return np.array(batchImages), np.array(batchLabels)
 
 
@@ -273,7 +279,7 @@ class DeepDog:
         at index i in testImages corresponds to the label at index i in 
         testLabels.  
 
-        input: none
+        input: None
 
         output:
             testImages: numpy array [testSetSize x [imageWidth x imageHeight x 3]]

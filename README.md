@@ -7,7 +7,7 @@ to train various kinds of neural networks in order to classify dog breeds based 
 
 An image of a German Shepherd from the data set.
 
-## Best Test Accuracies (10k iterations of mini batch stochastic gradient descent):
+## Best Test Accuracies (10k iterations of mini batch gradient descent):
 All loss functions are cross entropy.
 ### Simple Feed Forward Network:
 
